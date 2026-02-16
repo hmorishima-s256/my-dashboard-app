@@ -1,13 +1,23 @@
 @import './base.css';
 
+/* ダッシュボード向けの色定義 */
+:root {
+  --dash-bg-0: #0b1220;
+  --dash-bg-1: #131d34;
+  --dash-card: rgba(12, 20, 37, 0.72);
+  --dash-line: rgba(163, 186, 226, 0.25);
+  --dash-text-muted: #b6c2d8;
+  --dash-accent: #31a4f4;
+}
+
 body {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
+  /* ダッシュボード全体の背景をグラデーション化 */
+  overflow: auto;
   background-image: url('./wavy-lines.svg');
   background-size: cover;
-  user-select: none;
+  background-color: var(--dash-bg-0);
+  background-blend-mode: soft-light;
+  user-select: text;
 }
 
 code {
@@ -27,11 +37,127 @@ code {
 }
 
 #root {
+  min-height: 100vh;
+}
+
+/* Grid/Flex で構成するダッシュボード */
+.container {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 20px;
+  min-height: 100vh;
+  width: 100%;
+  padding: 28px 24px 40px;
+}
+
+.dashboard-header {
   display: flex;
   align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  margin-bottom: 80px;
+  justify-content: flex-start;
+}
+
+.dashboard-title {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+/* 右上固定の操作ボタン */
+.sync-button {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  border: 1px solid var(--dash-line);
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #f4f8ff;
+  background: linear-gradient(135deg, #16509e, var(--dash-accent));
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.24);
+  cursor: pointer;
+}
+
+.sync-button:hover {
+  filter: brightness(1.07);
+}
+
+.table-card {
+  border: 1px solid var(--dash-line);
+  border-radius: 18px;
+  background: var(--dash-card);
+  backdrop-filter: blur(10px);
+  overflow: auto;
+}
+
+.table-card table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table-card thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 700;
+  color: #dbe9ff;
+  background: rgba(15, 28, 53, 0.93);
+}
+
+.table-card th,
+.table-card td {
+  border-bottom: 1px solid rgba(143, 170, 212, 0.15);
+  padding: 12px 14px;
+}
+
+.table-card td {
+  color: #f1f6ff;
+}
+
+/* 日時セル内の改行（開始/終了）を可視化する */
+.date-time-cell {
+  white-space: pre-line;
+  line-height: 1.45;
+  font-variant-numeric: tabular-nums;
+}
+
+.table-card tbody tr:hover {
+  background: rgba(65, 113, 184, 0.18);
+}
+
+/* 右下の更新日時表示 */
+.updated-at {
+  position: fixed;
+  right: 24px;
+  bottom: 18px;
+  color: var(--dash-text-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+@media (max-width: 720px) {
+  .container {
+    padding: 20px 14px 56px;
+  }
+
+  .dashboard-title {
+    font-size: 22px;
+  }
+
+  .sync-button {
+    top: 12px;
+    right: 12px;
+    padding: 8px 14px;
+    font-size: 12px;
+  }
+
+  .updated-at {
+    right: 12px;
+    bottom: 10px;
+    font-size: 12px;
+  }
 }
 
 .logo {

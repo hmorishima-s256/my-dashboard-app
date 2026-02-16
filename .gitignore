@@ -4,3 +4,11 @@ out
 .DS_Store
 .eslintcache
 *.log*
+.vscode
+
+# Google API Credentials
+credentials.json
+token.json
+client_secret.json
+service_account.json
+key.pem
