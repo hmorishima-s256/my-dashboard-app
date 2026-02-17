@@ -1,9 +1,39 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
+type CalendarTableRow = {
+  calendarName: string
+  subject: string
+  dateTime: string
+}
+
+type AppSettings = {
+  autoFetchTime: string | null
+}
+
+type CalendarUpdatePayload = {
+  events: CalendarTableRow[]
+  updatedAt: string
+  source: 'manual' | 'auto'
+}
+
 // Custom APIs for renderer
+// const api = {
+//   getCalendar: () => ipcRenderer.invoke('get-calendar')
+// }
 const api = {
-  getCalendar: () => ipcRenderer.invoke('get-calendar')
+  getCalendar: () => ipcRenderer.invoke('get-calendar'),
+  getSettings: () => ipcRenderer.invoke('get-settings'),
+  saveSettings: (settings: AppSettings) => ipcRenderer.invoke('save-settings', settings),
+  onCalendarUpdated: (callback: (payload: CalendarUpdatePayload) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, payload: CalendarUpdatePayload): void => {
+      callback(payload)
+    }
+    ipcRenderer.on('calendar-updated', listener)
+    return () => {
+      ipcRenderer.removeListener('calendar-updated', listener)
+    }
+  }
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

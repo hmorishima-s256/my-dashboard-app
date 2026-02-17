@@ -82,12 +82,37 @@ code {
   filter: brightness(1.07);
 }
 
+/* 左下固定の設定ボタン */
+.settings-button {
+  position: fixed;
+  left: 24px;
+  bottom: 18px;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--dash-line);
+  border-radius: 50%;
+  color: #f4f8ff;
+  background: rgba(17, 33, 62, 0.9);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.24);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 20;
+}
+
+.settings-button:hover {
+  filter: brightness(1.08);
+}
+
 .table-card {
   border: 1px solid var(--dash-line);
   border-radius: 18px;
   background: var(--dash-card);
   backdrop-filter: blur(10px);
   overflow: auto;
+  /* 左下の設定ボタンと重なりにくくするため下マージンを追加 */
+  /* margin-bottom: 0; */
+  margin-bottom: 28px;
 }
 
 .table-card table {
@@ -137,6 +162,84 @@ code {
   font-weight: 600;
 }
 
+/* 設定モーダル */
+.settings-modal-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(3, 8, 18, 0.7);
+  z-index: 50;
+}
+
+.settings-modal {
+  width: min(420px, calc(100vw - 32px));
+  border: 1px solid var(--dash-line);
+  border-radius: 16px;
+  background: rgba(11, 22, 42, 0.98);
+  box-shadow: 0 24px 40px rgba(0, 0, 0, 0.34);
+  padding: 18px 18px 16px;
+}
+
+.settings-title {
+  margin: 0 0 10px;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.settings-label {
+  display: block;
+  margin-bottom: 6px;
+  color: #dbe9ff;
+  font-size: 13px;
+}
+
+.settings-time-input {
+  width: 100%;
+  border: 1px solid var(--dash-line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: rgba(10, 18, 34, 0.95);
+  color: #f1f6ff;
+}
+
+.settings-note {
+  margin: 8px 0 14px;
+  color: var(--dash-text-muted);
+  font-size: 12px;
+}
+
+.settings-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.settings-action-button {
+  border: 1px solid var(--dash-line);
+  border-radius: 999px;
+  padding: 7px 13px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.settings-action-button.secondary {
+  color: #dbe9ff;
+  background: rgba(19, 33, 61, 0.9);
+}
+
+.settings-action-button.primary {
+  color: #f4f8ff;
+  background: linear-gradient(135deg, #16509e, var(--dash-accent));
+}
+
+.settings-action-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 @media (max-width: 720px) {
   .container {
     padding: 20px 14px 56px;
@@ -157,6 +260,11 @@ code {
     right: 12px;
     bottom: 10px;
     font-size: 12px;
+  }
+
+  .settings-button {
+    left: 12px;
+    bottom: 10px;
   }
 }
 
