@@ -3,7 +3,17 @@ import { join } from 'path'
 import fs from 'fs/promises'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { getTodayEvents, type CalendarTableRow } from './googleAuth'
+import {
+  APP_SHARED_CONFIG_DIR,
+  ensureSharedFiles,
+  getDefaultProfileIconUrl,
+  getEventsByDate,
+  loginWithGoogle,
+  logoutGoogle,
+  getSavedUserProfile,
+  type CalendarTableRow,
+  type UserProfile
+} from './googleAuth'
 import { loadAppSettings, saveAppSettings, type AppSettings } from './appSettings'
 
 // Renderer へ配信する更新通知の型
@@ -18,8 +28,10 @@ let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let isQuitting = false
 let schedulerTimer: NodeJS.Timeout | null = null
-let settings: AppSettings = { autoFetchTime: null }
+let currentUser: UserProfile | null = null
+let settings: AppSettings = { autoFetchTime: null, autoFetchIntervalMinutes: null }
 let lastAutoFetchDateKey: string | null = null
+let lastIntervalFetchAtMs: number | null = null
 let shouldStartHidden = process.argv.includes(START_HIDDEN_ARG)
 const AUTO_LAUNCH_MARKER_FILE = 'auto-launch-initialized'
 
@@ -43,12 +55,17 @@ const quitApplication = (): void => {
   app.exit(0)
 }
 
-// 当日予定を取得し、Renderer に更新通知を送る共通処理
-const fetchAndNotifyTodayEvents = async (
+// 指定日の予定を取得し、Renderer に更新通知を送る共通処理
+const fetchAndNotifyEventsByDate = async (
+  targetDate: string,
   source: 'manual' | 'auto'
 ): Promise<CalendarTableRow[]> => {
+  if (!currentUser) {
+    return []
+  }
+
   try {
-    const events = await getTodayEvents()
+    const events = await getEventsByDate(targetDate)
     const payload: CalendarUpdatePayload = {
       events,
       updatedAt: new Date().toISOString(),
@@ -68,16 +85,38 @@ const fetchAndNotifyTodayEvents = async (
 
 // 自動取得時刻に到達したかを判定し、1日1回だけ実行する
 const runAutoFetchIfNeeded = async (): Promise<void> => {
-  if (!settings.autoFetchTime) return
+  if (!currentUser) return
+  const hasDailyTime = !!settings.autoFetchTime
+  const hasInterval = !!settings.autoFetchIntervalMinutes
+  if (!hasDailyTime && !hasInterval) return
 
   const now = new Date()
-  if (buildTimeKey(now) !== settings.autoFetchTime) return
+  const nowMs = now.getTime()
 
-  const todayKey = buildDateKey(now)
-  if (lastAutoFetchDateKey === todayKey) return
+  let shouldFetch = false
 
-  await fetchAndNotifyTodayEvents('auto')
-  lastAutoFetchDateKey = todayKey
+  if (hasDailyTime && settings.autoFetchTime) {
+    const todayKey = buildDateKey(now)
+    const isTargetTime = buildTimeKey(now) === settings.autoFetchTime
+    if (isTargetTime && lastAutoFetchDateKey !== todayKey) {
+      shouldFetch = true
+      lastAutoFetchDateKey = todayKey
+    }
+  }
+
+  if (!shouldFetch && hasInterval && settings.autoFetchIntervalMinutes) {
+    const intervalMs = settings.autoFetchIntervalMinutes * 60 * 1000
+    const shouldRunByInterval =
+      lastIntervalFetchAtMs === null || nowMs - lastIntervalFetchAtMs >= intervalMs
+    if (shouldRunByInterval) {
+      shouldFetch = true
+    }
+  }
+
+  if (!shouldFetch) return
+
+  await fetchAndNotifyEventsByDate(buildDateKey(now), 'auto')
+  lastIntervalFetchAtMs = nowMs
 }
 
 // 自動取得スケジューラを開始/再開始する
@@ -99,7 +138,8 @@ const applyWindowsAutoLaunchSetting = async (): Promise<void> => {
   if (process.platform !== 'win32') return
   if (!app.isPackaged) return
 
-  const markerPath = join(app.getPath('userData'), AUTO_LAUNCH_MARKER_FILE)
+  // const markerPath = join(app.getPath('userData'), AUTO_LAUNCH_MARKER_FILE)
+  const markerPath = join(APP_SHARED_CONFIG_DIR, AUTO_LAUNCH_MARKER_FILE)
   try {
     await fs.access(markerPath)
     return
@@ -113,6 +153,7 @@ const applyWindowsAutoLaunchSetting = async (): Promise<void> => {
     args: [START_HIDDEN_ARG]
   })
 
+  await fs.mkdir(APP_SHARED_CONFIG_DIR, { recursive: true })
   await fs.writeFile(markerPath, new Date().toISOString(), 'utf-8')
 }
 
@@ -236,26 +277,82 @@ function createWindow(): BrowserWindow {
 app.whenReady().then(async () => {
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.electron')
-  settings = await loadAppSettings()
+  await ensureSharedFiles()
+  currentUser = await getSavedUserProfile()
+  // settings = await loadAppSettings()
+  settings = await loadAppSettings(currentUser)
   // applyWindowsAutoLaunchSetting()
   await applyWindowsAutoLaunchSetting()
   createTray()
   startAutoFetchScheduler()
 
-  ipcMain.handle('get-calendar', async () => {
-    // const events = await getTodayEvents()
-    const events = await fetchAndNotifyTodayEvents('manual')
+  ipcMain.handle('get-calendar', async (_event, targetDate?: string) => {
+    const requestedDate = typeof targetDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(targetDate)
+      ? targetDate
+      : buildDateKey(new Date())
+    const events = await fetchAndNotifyEventsByDate(requestedDate, 'manual')
     return events
   })
 
   // Renderer から自動取得時刻設定を読み書きするための IPC
   ipcMain.handle('get-settings', async () => settings)
   ipcMain.handle('save-settings', async (_event, nextSettings: AppSettings) => {
-    settings = await saveAppSettings(nextSettings)
+    // settings = await saveAppSettings(nextSettings)
+    settings = await saveAppSettings(currentUser, nextSettings)
     // 設定変更時は当日実行フラグをリセットし、次回判定を有効にする
     lastAutoFetchDateKey = null
+    lastIntervalFetchAtMs = null
     startAutoFetchScheduler()
     return settings
+  })
+  ipcMain.handle('get-default-profile-icon-url', async () => await getDefaultProfileIconUrl())
+
+  // 認証状態を読み書きするための IPC
+  ipcMain.handle('auth:get-current-user', async () => currentUser)
+  ipcMain.handle('auth:login', async () => {
+    try {
+      const profile = await loginWithGoogle()
+      currentUser = profile
+      settings = await loadAppSettings(currentUser)
+      lastAutoFetchDateKey = null
+      lastIntervalFetchAtMs = null
+      startAutoFetchScheduler()
+      // 認証完了後はアプリ画面を前面に出す
+      if (!mainWindow || mainWindow.isDestroyed()) {
+        mainWindow = createWindow()
+      }
+      mainWindow.show()
+      mainWindow.focus()
+      // ログイン直後に当日予定を自動取得する
+      await fetchAndNotifyEventsByDate(buildDateKey(new Date()), 'manual')
+      return { success: true, user: currentUser, message: '' }
+    } catch (error) {
+      return {
+        success: false,
+        user: null,
+        message: error instanceof Error ? error.message : 'Google login failed'
+      }
+    }
+  })
+  ipcMain.handle('auth:logout', async () => {
+    const result = await logoutGoogle()
+    if (result.success) {
+      currentUser = null
+      settings = await loadAppSettings(currentUser)
+      lastAutoFetchDateKey = null
+      lastIntervalFetchAtMs = null
+      startAutoFetchScheduler()
+
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        const payload: CalendarUpdatePayload = {
+          events: [],
+          updatedAt: new Date().toISOString(),
+          source: 'manual'
+        }
+        mainWindow.webContents.send('calendar-updated', payload)
+      }
+    }
+    return result
   })
 
   // Default open or close DevTools by F12 in development

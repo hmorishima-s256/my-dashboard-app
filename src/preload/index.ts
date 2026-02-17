@@ -9,6 +9,24 @@ type CalendarTableRow = {
 
 type AppSettings = {
   autoFetchTime: string | null
+  autoFetchIntervalMinutes: number | null
+}
+
+type UserProfile = {
+  name: string
+  email: string
+  iconUrl: string
+}
+
+type AuthLoginResult = {
+  success: boolean
+  user: UserProfile | null
+  message: string
+}
+
+type AuthLogoutResult = {
+  success: boolean
+  message?: string
 }
 
 type CalendarUpdatePayload = {
@@ -22,9 +40,13 @@ type CalendarUpdatePayload = {
 //   getCalendar: () => ipcRenderer.invoke('get-calendar')
 // }
 const api = {
-  getCalendar: () => ipcRenderer.invoke('get-calendar'),
+  getCalendar: (targetDate?: string) => ipcRenderer.invoke('get-calendar', targetDate),
   getSettings: () => ipcRenderer.invoke('get-settings'),
   saveSettings: (settings: AppSettings) => ipcRenderer.invoke('save-settings', settings),
+  getDefaultProfileIconUrl: () => ipcRenderer.invoke('get-default-profile-icon-url') as Promise<string>,
+  authLogin: () => ipcRenderer.invoke('auth:login') as Promise<AuthLoginResult>,
+  authLogout: () => ipcRenderer.invoke('auth:logout') as Promise<AuthLogoutResult>,
+  authGetCurrentUser: () => ipcRenderer.invoke('auth:get-current-user') as Promise<UserProfile | null>,
   onCalendarUpdated: (callback: (payload: CalendarUpdatePayload) => void) => {
     const listener = (_event: Electron.IpcRendererEvent, payload: CalendarUpdatePayload): void => {
       callback(payload)
