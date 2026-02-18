@@ -53,14 +53,13 @@ const normalizeCalendarName = (name: string): string => {
   return atIndex > 0 ? name.slice(0, atIndex) : name
 }
 
-// JST で HH24:MM:SS 表示へ変換する
+// JST で HH24:MM 表示へ変換する
 const formatJstTime = (dateTime: string): string =>
   new Date(dateTime).toLocaleTimeString('ja-JP', {
     timeZone: 'Asia/Tokyo',
     hour12: false,
     hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
+    minute: '2-digit'
   })
 
 // yyyy-mm-dd 形式の日付文字列をローカル日付として解釈する
