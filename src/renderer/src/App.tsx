@@ -7,76 +7,36 @@ import { ScheduleTable } from './components/ScheduleTable'
 import { SettingsModal } from './components/SettingsModal'
 import { TaskBoard } from './components/TaskBoard'
 import { formatDateTime, formatInputDate } from './lib/dateUtils'
-import { buildIntervalMinutes, parseIntervalForInput } from './lib/settingsUtils'
 import { useDateEditor } from './hooks/useDateEditor'
-import type {
-  AppSettings,
-  AuthLoginResult,
-  AuthLogoutResult,
-  CalendarTableRow,
-  CalendarUpdatePayload,
-  DashboardTab,
-  IntervalUnit,
-  TaskTimeDisplayMode,
-  UserProfile
-} from './types/ui'
+import { useAuthController } from './hooks/useAuthController'
+import { useCalendarRows } from './hooks/useCalendarRows'
+import { useDashboardSettings } from './hooks/useDashboardSettings'
+import type { DashboardTab } from './types/ui'
 
 // ダッシュボード画面全体を構成するルートコンポーネント
 function App(): React.JSX.Element {
-  // 画面表示用の状態
-  const [rows, setRows] = useState<CalendarTableRow[]>([])
-  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
-  const [autoFetchTime, setAutoFetchTime] = useState('')
-  const [isSavingSettings, setIsSavingSettings] = useState(false)
-  const [autoFetchIntervalValue, setAutoFetchIntervalValue] = useState('')
-  const [autoFetchIntervalUnit, setAutoFetchIntervalUnit] = useState<IntervalUnit>('minutes')
-  // 設定モーダル編集中の時間表記モード（保存時のみ反映する）
-  const [taskTimeDisplayModeDraft, setTaskTimeDisplayModeDraft] = useState<TaskTimeDisplayMode>('hourMinute')
-  const [taskTimeDisplayMode, setTaskTimeDisplayMode] = useState<TaskTimeDisplayMode>('hourMinute')
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null)
-  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false)
-  const [isAuthProcessing, setIsAuthProcessing] = useState(false)
-  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false)
+  // 画面のタブ状態
   const [activeTab, setActiveTab] = useState<DashboardTab>('schedule')
 
   const selectedDateRef = useRef<string>(formatInputDate(new Date()))
   const dateEditor = useDateEditor()
+  const auth = useAuthController()
+  const settings = useDashboardSettings()
+  const calendarRows = useCalendarRows({ selectedDateRef })
 
   useEffect(() => {
     selectedDateRef.current = dateEditor.selectedDate
   }, [dateEditor.selectedDate])
 
-  const applyLoadedSettings = (loadedSettings: AppSettings): void => {
-    setAutoFetchTime(loadedSettings.autoFetchTime ?? '')
-    const parsedInterval = parseIntervalForInput(loadedSettings.autoFetchIntervalMinutes)
-    setAutoFetchIntervalValue(parsedInterval.value)
-    setAutoFetchIntervalUnit(parsedInterval.unit)
-    setTaskTimeDisplayModeDraft(loadedSettings.taskTimeDisplayMode)
-    setTaskTimeDisplayMode(loadedSettings.taskTimeDisplayMode)
-  }
-
   useEffect(() => {
     let isMounted = true
-    // Main からの自動更新通知を受け取り、表示データへ反映する
-    const unsubscribe = window.api.onCalendarUpdated((payload: CalendarUpdatePayload) => {
-      if (!isMounted) return
-      if (payload.source === 'auto' && selectedDateRef.current !== formatInputDate(new Date())) {
-        return
-      }
-      setRows(payload.events)
-      setLastUpdatedAt(new Date(payload.updatedAt))
-    })
-
+    // 起動時に認証情報と設定をロードする
     const loadInitialState = async (): Promise<void> => {
       try {
-        const [user, loadedSettings] = await Promise.all([
-          window.api.authGetCurrentUser(),
-          window.api.getSettings()
-        ])
+        const [user, loadedSettings] = await Promise.all([auth.loadCurrentUser(), window.api.getSettings()])
         if (!isMounted) return
-        setCurrentUser(user)
-        applyLoadedSettings(loadedSettings)
+        auth.setCurrentUser(user)
+        settings.applyLoadedSettings(loadedSettings)
       } catch (error) {
         console.error('Failed to load initial state:', error)
       }
@@ -85,105 +45,36 @@ function App(): React.JSX.Element {
     void loadInitialState()
     return () => {
       isMounted = false
-      unsubscribe()
     }
   }, [])
 
-  const handleGetSchedule = async (targetDate = dateEditor.selectedDate): Promise<void> => {
-    if (!currentUser) return
-    // 指定日の予定を取得してテーブルへ反映する
-    const events = await window.api.getCalendar(targetDate)
-    setRows(events)
-    setLastUpdatedAt(new Date())
-  }
-
   useEffect(() => {
-    if (!currentUser) return
-    void handleGetSchedule(dateEditor.selectedDate)
-  }, [currentUser, dateEditor.selectedDate])
+    if (!auth.currentUser) return
+    void calendarRows.fetchSchedule(auth.currentUser, dateEditor.selectedDate)
+  }, [auth.currentUser, dateEditor.selectedDate, calendarRows.fetchSchedule])
 
   const reloadSettings = async (): Promise<void> => {
     const loadedSettings = await window.api.getSettings()
-    applyLoadedSettings(loadedSettings)
+    settings.applyLoadedSettings(loadedSettings)
   }
 
   const handleLogin = async (): Promise<void> => {
-    if (isAuthProcessing) return
-    setIsAuthProcessing(true)
-    try {
-      const result: AuthLoginResult = await window.api.authLogin()
-      if (!result.success || !result.user) {
-        console.error('Login failed:', result.message)
-        return
-      }
-      setCurrentUser(result.user)
-      setIsProfileMenuOpen(false)
-      // ログインユーザー向け設定へ再読込し、反映する
+    await auth.login(async () => {
+      // ログイン後はユーザー設定を再取得する
       await reloadSettings()
-    } catch (error) {
-      console.error('Failed to login:', error)
-    } finally {
-      setIsAuthProcessing(false)
-    }
+    })
   }
 
   const handleConfirmLogout = async (): Promise<void> => {
-    if (isAuthProcessing) return
-    setIsAuthProcessing(true)
-    try {
-      const result: AuthLogoutResult = await window.api.authLogout()
-      if (!result.success) {
-        console.error('Logout failed:', result.message)
-        return
-      }
-      setCurrentUser(null)
-      setIsProfileMenuOpen(false)
-      setIsLogoutConfirmOpen(false)
-      setRows([])
-      setLastUpdatedAt(null)
-      // ログアウト後はゲスト向け設定へ再読込する
+    await auth.logout(async () => {
+      // ログアウト後は表示データを初期化し、ゲスト設定へ戻す
+      calendarRows.clearRows()
       await reloadSettings()
-    } catch (error) {
-      console.error('Failed to logout:', error)
-    } finally {
-      setIsAuthProcessing(false)
-    }
+    })
   }
 
-  const handleSaveSettings = async (): Promise<void> => {
-    if (!currentUser || isSavingSettings) return
-    setIsSavingSettings(true)
-    try {
-      const savedSettings = await window.api.saveSettings({
-        autoFetchTime: autoFetchTime || null,
-        autoFetchIntervalMinutes: buildIntervalMinutes(autoFetchIntervalValue, autoFetchIntervalUnit),
-        taskTimeDisplayMode: taskTimeDisplayModeDraft
-      })
-      applyLoadedSettings(savedSettings)
-      setIsSettingsOpen(false)
-    } catch (error) {
-      console.error('Failed to save settings:', error)
-    } finally {
-      setIsSavingSettings(false)
-    }
-  }
-
-  const handleClearAutoFetchTime = async (): Promise<void> => {
-    if (!currentUser || isSavingSettings) return
-    setIsSavingSettings(true)
-    try {
-      const savedSettings = await window.api.saveSettings({
-        autoFetchTime: null,
-        autoFetchIntervalMinutes: null,
-        taskTimeDisplayMode: taskTimeDisplayModeDraft
-      })
-      applyLoadedSettings(savedSettings)
-      setIsSettingsOpen(false)
-    } catch (error) {
-      console.error('Failed to clear settings:', error)
-    } finally {
-      setIsSavingSettings(false)
-    }
+  const handleGetSchedule = async (targetDate = dateEditor.selectedDate): Promise<void> => {
+    await calendarRows.fetchSchedule(auth.currentUser, targetDate)
   }
 
   useEffect(() => {
@@ -195,22 +86,21 @@ function App(): React.JSX.Element {
         dateEditor.closeEditor()
         return
       }
-      if (isSettingsOpen) {
+      if (settings.isSettingsOpen) {
         event.preventDefault()
-        setIsSettingsOpen(false)
+        settings.closeSettingsModal()
       }
     }
     window.addEventListener('keydown', handleEscKeyDown)
     return () => {
       window.removeEventListener('keydown', handleEscKeyDown)
     }
-  }, [dateEditor, isSettingsOpen])
-
-  // 設定モーダルを開くときに保存済み値をドラフトへ反映する
-  const openSettingsModal = (): void => {
-    setTaskTimeDisplayModeDraft(taskTimeDisplayMode)
-    setIsSettingsOpen(true)
-  }
+  }, [
+    dateEditor.isDateEditorOpen,
+    dateEditor.closeEditor,
+    settings.isSettingsOpen,
+    settings.closeSettingsModal
+  ])
 
   return (
     <div className="container">
@@ -241,61 +131,65 @@ function App(): React.JSX.Element {
         <DashboardTabs activeTab={activeTab} onChangeTab={setActiveTab} />
 
         <div className="topbar-right">
-          <button className="sync-button" onClick={() => void handleGetSchedule()} disabled={!currentUser || isAuthProcessing}>
+          <button
+            className="sync-button"
+            onClick={() => void handleGetSchedule()}
+            disabled={!auth.currentUser || auth.isAuthProcessing}
+          >
             同期
           </button>
           <ProfileSection
-            currentUser={currentUser}
-            isAuthProcessing={isAuthProcessing}
-            isProfileMenuOpen={isProfileMenuOpen}
+            currentUser={auth.currentUser}
+            isAuthProcessing={auth.isAuthProcessing}
+            isProfileMenuOpen={auth.isProfileMenuOpen}
             onLogin={() => void handleLogin()}
-            onToggleProfileMenu={() => setIsProfileMenuOpen((previous) => !previous)}
-            onOpenLogoutConfirm={() => setIsLogoutConfirmOpen(true)}
+            onToggleProfileMenu={() => auth.setIsProfileMenuOpen((previous) => !previous)}
+            onOpenLogoutConfirm={() => auth.setIsLogoutConfirmOpen(true)}
           />
         </div>
       </header>
 
       <section className="content-panel">
         {activeTab === 'schedule' ? (
-          <ScheduleTable rows={rows} />
+          <ScheduleTable rows={calendarRows.rows} />
         ) : (
           <TaskBoard
             selectedDate={dateEditor.selectedDate}
             selectedDateLabel={dateEditor.selectedDateLabel}
-            currentUser={currentUser}
-            taskTimeDisplayMode={taskTimeDisplayMode}
+            currentUser={auth.currentUser}
+            taskTimeDisplayMode={settings.taskTimeDisplayMode}
           />
         )}
       </section>
 
       <footer className="dashboard-footer">
-        <button className="settings-button" onClick={openSettingsModal} aria-label="設定">
+        <button className="settings-button" onClick={settings.openSettingsModal} aria-label="設定">
           ⚙
         </button>
-        <div className="updated-at">更新日時: {lastUpdatedAt ? formatDateTime(lastUpdatedAt) : '-'}</div>
+        <div className="updated-at">更新日時: {calendarRows.lastUpdatedAt ? formatDateTime(calendarRows.lastUpdatedAt) : '-'}</div>
       </footer>
 
       <SettingsModal
-        isOpen={isSettingsOpen}
-        currentUserExists={!!currentUser}
-        autoFetchTime={autoFetchTime}
-        autoFetchIntervalValue={autoFetchIntervalValue}
-        autoFetchIntervalUnit={autoFetchIntervalUnit}
-        taskTimeDisplayMode={taskTimeDisplayModeDraft}
-        isSavingSettings={isSavingSettings}
-        onClose={() => setIsSettingsOpen(false)}
-        onChangeAutoFetchTime={setAutoFetchTime}
-        onChangeAutoFetchIntervalValue={setAutoFetchIntervalValue}
-        onChangeAutoFetchIntervalUnit={setAutoFetchIntervalUnit}
-        onChangeTaskTimeDisplayMode={setTaskTimeDisplayModeDraft}
-        onClear={() => void handleClearAutoFetchTime()}
-        onSave={() => void handleSaveSettings()}
+        isOpen={settings.isSettingsOpen}
+        currentUserExists={!!auth.currentUser}
+        autoFetchTime={settings.autoFetchTime}
+        autoFetchIntervalValue={settings.autoFetchIntervalValue}
+        autoFetchIntervalUnit={settings.autoFetchIntervalUnit}
+        taskTimeDisplayMode={settings.taskTimeDisplayModeDraft}
+        isSavingSettings={settings.isSavingSettings}
+        onClose={settings.closeSettingsModal}
+        onChangeAutoFetchTime={settings.setAutoFetchTime}
+        onChangeAutoFetchIntervalValue={settings.setAutoFetchIntervalValue}
+        onChangeAutoFetchIntervalUnit={settings.setAutoFetchIntervalUnit}
+        onChangeTaskTimeDisplayMode={settings.setTaskTimeDisplayModeDraft}
+        onClear={() => void settings.clearSettings(auth.currentUser)}
+        onSave={() => void settings.saveSettings(auth.currentUser)}
       />
 
       <LogoutConfirmModal
-        isOpen={isLogoutConfirmOpen}
-        isProcessing={isAuthProcessing}
-        onClose={() => setIsLogoutConfirmOpen(false)}
+        isOpen={auth.isLogoutConfirmOpen}
+        isProcessing={auth.isAuthProcessing}
+        onClose={() => auth.setIsLogoutConfirmOpen(false)}
         onConfirm={() => void handleConfirmLogout()}
       />
     </div>

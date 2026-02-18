@@ -4,7 +4,7 @@
 対象リポジトリ: `my-dashboard-app`
 
 本ドキュメントは、直近のリファクタリング後の実装状態を反映しています。  
-特に `src/main/services` / `src/main/ipc` / `src/shared/contracts.ts` / Renderer のコンポーネント分割を前提に記載しています。
+特に `src/main/ipc/handlers` への分割、Renderer の `hooks` 分離、`TaskListResponse` 拡張（案件別候補）を前提に記載しています。
 
 ## ドキュメント一覧
 

@@ -9,7 +9,7 @@
 | `getCalendar` | `targetDate?: string` (`yyyy-mm-dd`) | `Promise<CalendarTableRow[]>` | 指定日予定を取得 |
 | `getSettings` | なし | `Promise<AppSettings>` | 現在ユーザー設定を取得 |
 | `saveSettings` | `AppSettings` | `Promise<AppSettings>` | 設定を保存（正規化） |
-| `taskGetAll` | `userId: string, targetDate: string` | `Promise<TaskListResponse>` | 指定日のタスク一覧 + 補完マスタ取得 |
+| `taskGetAll` | `userId: string, targetDate: string` | `Promise<TaskListResponse>` | 指定日のタスク一覧 + 補完マスタ取得（案件別カテゴリ/タスク候補含む） |
 | `taskAdd` | `TaskCreateInput` | `Promise<Task>` | タスク追加 |
 | `taskUpdate` | `Task` | `Promise<Task \| null>` | タスク更新 |
 | `taskDelete` | `taskId: string` | `Promise<boolean>` | タスク削除 |
@@ -21,7 +21,13 @@
 
 ## 5.2 Main 側 IPC ハンドラ
 
-定義箇所: `src/main/ipc/registerMainIpcHandlers.ts`
+定義箇所:
+
+- `src/main/ipc/registerMainIpcHandlers.ts`（合成）
+- `src/main/ipc/handlers/calendarHandlers.ts`
+- `src/main/ipc/handlers/settingsHandlers.ts`
+- `src/main/ipc/handlers/taskHandlers.ts`
+- `src/main/ipc/handlers/authHandlers.ts`
 
 - `get-calendar`
   - `targetDate` が `yyyy-mm-dd` 形式でなければ当日へフォールバック
@@ -36,6 +42,10 @@
   - 日付バリデーション
   - 不正値は当日へフォールバック
   - タスク一覧と補完マスタを返却
+    - `projects`
+    - `categories`
+    - `projectCategories`（案件別カテゴリ候補）
+    - `projectTitles`（案件別タスク候補）
 - `task:add`
   - タスク追加
 - `task:update`
@@ -85,3 +95,4 @@
   - `src/preload/index.ts`
   - `src/preload/index.d.ts`
   - `src/main/ipc/registerMainIpcHandlers.ts`
+  - `src/main/ipc/handlers/*.ts`
