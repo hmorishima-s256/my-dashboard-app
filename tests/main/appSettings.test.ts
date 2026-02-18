@@ -42,7 +42,8 @@ describe('appSettings', () => {
 
     await expect(loadAppSettings(null)).resolves.toEqual({
       autoFetchTime: null,
-      autoFetchIntervalMinutes: null
+      autoFetchIntervalMinutes: null,
+      taskTimeDisplayMode: 'hourMinute'
     })
   })
 
@@ -52,18 +53,21 @@ describe('appSettings', () => {
 
     const saved = await saveAppSettings(null, {
       autoFetchTime: ' 09:05 ',
-      autoFetchIntervalMinutes: 30
+      autoFetchIntervalMinutes: 30,
+      taskTimeDisplayMode: 'decimal'
     })
 
     expect(saved).toEqual({
       autoFetchTime: '09:05',
-      autoFetchIntervalMinutes: 30
+      autoFetchIntervalMinutes: 30,
+      taskTimeDisplayMode: 'decimal'
     })
 
     const savedFilePath = path.join(rootPath, '_shared', 'settings.guest.json')
     const savedContent = JSON.parse(await fs.readFile(savedFilePath, 'utf-8')) as {
       autoFetchTime: string | null
       autoFetchIntervalMinutes: number | null
+      taskTimeDisplayMode: 'hourMinute' | 'decimal'
     }
     expect(savedContent).toEqual(saved)
 
@@ -81,13 +85,15 @@ describe('appSettings', () => {
 
     const saved = await saveAppSettings(user, {
       autoFetchTime: '08:00',
-      autoFetchIntervalMinutes: 120
+      autoFetchIntervalMinutes: 120,
+      taskTimeDisplayMode: 'hourMinute'
     })
 
     const savedFilePath = path.join(rootPath, encodeURIComponent(user.email), 'settings.json')
     const savedContent = JSON.parse(await fs.readFile(savedFilePath, 'utf-8')) as {
       autoFetchTime: string | null
       autoFetchIntervalMinutes: number | null
+      taskTimeDisplayMode: 'hourMinute' | 'decimal'
     }
     expect(savedContent).toEqual(saved)
     await expect(loadAppSettings(user)).resolves.toEqual(saved)
@@ -100,21 +106,25 @@ describe('appSettings', () => {
     await expect(
       saveAppSettings(null, {
         autoFetchTime: '25:99',
-        autoFetchIntervalMinutes: 0
+        autoFetchIntervalMinutes: 0,
+        taskTimeDisplayMode: 'invalid' as never
       })
     ).resolves.toEqual({
       autoFetchTime: null,
-      autoFetchIntervalMinutes: null
+      autoFetchIntervalMinutes: null,
+      taskTimeDisplayMode: 'hourMinute'
     })
 
     await expect(
       saveAppSettings(null, {
         autoFetchTime: '00:00',
-        autoFetchIntervalMinutes: 10.8
+        autoFetchIntervalMinutes: 10.8,
+        taskTimeDisplayMode: 'decimal'
       })
     ).resolves.toEqual({
       autoFetchTime: '00:00',
-      autoFetchIntervalMinutes: 10
+      autoFetchIntervalMinutes: 10,
+      taskTimeDisplayMode: 'decimal'
     })
   })
 })

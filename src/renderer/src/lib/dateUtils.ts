@@ -7,7 +7,22 @@ export const formatDate = (date: Date): string =>
 export const formatInputDate = (date: Date): string =>
   `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`
 
-export const formatDateFromInput = (inputDate: string): string => inputDate.replace(/-/g, '/')
+const WEEKDAY_JP = ['日', '月', '火', '水', '木', '金', '土'] as const
+
+export const formatDateFromInput = (inputDate: string): string => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(inputDate)
+  if (!match) return inputDate.replace(/-/g, '/')
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  const candidate = new Date(year, month - 1, day)
+  const isValidDate =
+    candidate.getFullYear() === year &&
+    candidate.getMonth() === month - 1 &&
+    candidate.getDate() === day
+  if (!isValidDate) return `${match[1]}/${match[2]}/${match[3]}`
+  return `${match[1]}/${match[2]}/${match[3]}（${WEEKDAY_JP[candidate.getDay()]}）`
+}
 
 export const formatDateTime = (date: Date): string =>
   `${formatDate(date)} ${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}`

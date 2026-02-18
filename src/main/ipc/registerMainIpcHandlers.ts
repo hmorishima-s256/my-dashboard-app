@@ -4,6 +4,9 @@ import type {
   AuthLoginResult,
   AuthLogoutResult,
   CalendarTableRow,
+  Task,
+  TaskCreateInput,
+  TaskListResponse,
   UserProfile
 } from '../../shared/contracts'
 
@@ -25,6 +28,10 @@ type RegisterMainIpcHandlersDependencies = {
   publishEmptyManualUpdate: () => void
   ensureMainWindowVisible: () => void
   buildDateKey: (date: Date) => string
+  taskGetAll: (date: string) => Promise<TaskListResponse>
+  taskAdd: (taskInput: TaskCreateInput) => Promise<Task>
+  taskUpdate: (task: Task) => Promise<Task | null>
+  taskDelete: (taskId: string) => Promise<boolean>
 }
 
 // IPC の入出力契約を1か所で登録する
@@ -49,6 +56,26 @@ export const registerMainIpcHandlers = (
   })
 
   ipcMain.handle('get-default-profile-icon-url', async () => await dependencies.getDefaultProfileIconUrl())
+
+  ipcMain.handle('task:get-all', async (_event, _userId: string | undefined, targetDate?: string) => {
+    const requestedDate =
+      typeof targetDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(targetDate)
+        ? targetDate
+        : dependencies.buildDateKey(new Date())
+    return await dependencies.taskGetAll(requestedDate)
+  })
+
+  ipcMain.handle('task:add', async (_event, taskInput: TaskCreateInput) => {
+    return await dependencies.taskAdd(taskInput)
+  })
+
+  ipcMain.handle('task:update', async (_event, task: Task) => {
+    return await dependencies.taskUpdate(task)
+  })
+
+  ipcMain.handle('task:delete', async (_event, taskId: string) => {
+    return await dependencies.taskDelete(taskId)
+  })
 
   ipcMain.handle('auth:get-current-user', async () => dependencies.getCurrentUser())
 

@@ -6,7 +6,8 @@ export type { AppSettings } from '../shared/contracts'
 
 const DEFAULT_SETTINGS: AppSettings = {
   autoFetchTime: null,
-  autoFetchIntervalMinutes: null
+  autoFetchIntervalMinutes: null,
+  taskTimeDisplayMode: 'hourMinute'
 }
 
 // 設定ファイル保存先（未ログイン時はゲスト設定を返す）
@@ -34,6 +35,12 @@ const normalizeAutoFetchIntervalMinutes = (value: number | null | undefined): nu
   return normalized >= 1 ? normalized : null
 }
 
+// タスク時間の表示形式を正規化する（不正値は既定値へ）
+const normalizeTaskTimeDisplayMode = (value: string | null | undefined): AppSettings['taskTimeDisplayMode'] => {
+  if (value === 'hourMinute' || value === 'decimal') return value
+  return DEFAULT_SETTINGS.taskTimeDisplayMode
+}
+
 // 設定を読み込む（ファイル未作成時はデフォルトを返す）
 // export const loadAppSettings = async (): Promise<AppSettings> => {
 export const loadAppSettings = async (currentUser: UserProfile | null): Promise<AppSettings> => {
@@ -43,7 +50,8 @@ export const loadAppSettings = async (currentUser: UserProfile | null): Promise<
     const parsed = JSON.parse(content) as Partial<AppSettings>
     return {
       autoFetchTime: normalizeAutoFetchTime(parsed.autoFetchTime),
-      autoFetchIntervalMinutes: normalizeAutoFetchIntervalMinutes(parsed.autoFetchIntervalMinutes)
+      autoFetchIntervalMinutes: normalizeAutoFetchIntervalMinutes(parsed.autoFetchIntervalMinutes),
+      taskTimeDisplayMode: normalizeTaskTimeDisplayMode(parsed.taskTimeDisplayMode)
     }
   } catch {
     return { ...DEFAULT_SETTINGS }
@@ -58,7 +66,8 @@ export const saveAppSettings = async (
 ): Promise<AppSettings> => {
   const nextSettings: AppSettings = {
     autoFetchTime: normalizeAutoFetchTime(settings.autoFetchTime),
-    autoFetchIntervalMinutes: normalizeAutoFetchIntervalMinutes(settings.autoFetchIntervalMinutes)
+    autoFetchIntervalMinutes: normalizeAutoFetchIntervalMinutes(settings.autoFetchIntervalMinutes),
+    taskTimeDisplayMode: normalizeTaskTimeDisplayMode(settings.taskTimeDisplayMode)
   }
 
   const filePath = getSettingsPath(currentUser)

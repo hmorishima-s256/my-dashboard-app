@@ -9,6 +9,10 @@
 | `getCalendar` | `targetDate?: string` (`yyyy-mm-dd`) | `Promise<CalendarTableRow[]>` | 指定日予定を取得 |
 | `getSettings` | なし | `Promise<AppSettings>` | 現在ユーザー設定を取得 |
 | `saveSettings` | `AppSettings` | `Promise<AppSettings>` | 設定を保存（正規化） |
+| `taskGetAll` | `userId: string, targetDate: string` | `Promise<TaskListResponse>` | 指定日のタスク一覧 + 補完マスタ取得 |
+| `taskAdd` | `TaskCreateInput` | `Promise<Task>` | タスク追加 |
+| `taskUpdate` | `Task` | `Promise<Task \| null>` | タスク更新 |
+| `taskDelete` | `taskId: string` | `Promise<boolean>` | タスク削除 |
 | `getDefaultProfileIconUrl` | なし | `Promise<string>` | 共有デフォルトアイコン URL を取得 |
 | `authLogin` | なし | `Promise<AuthLoginResult>` | Google ログイン実行 |
 | `authLogout` | なし | `Promise<AuthLogoutResult>` | ログアウト実行 |
@@ -28,6 +32,16 @@
   - 保存後に自動取得状態をリセットしスケジューラ再始動
 - `get-default-profile-icon-url`
   - `_shared/electron.svg` の file URL を返却
+- `task:get-all`
+  - 日付バリデーション
+  - 不正値は当日へフォールバック
+  - タスク一覧と補完マスタを返却
+- `task:add`
+  - タスク追加
+- `task:update`
+  - タスク更新
+- `task:delete`
+  - タスク削除
 - `auth:get-current-user`
   - 現在ユーザー情報を返却
 - `auth:login`
@@ -45,6 +59,9 @@
 - `AuthLoginResult`
 - `AuthLogoutResult`
 - `CalendarUpdatePayload`
+- `Task`
+- `TaskCreateInput`
+- `TaskListResponse`
 
 `src/preload/index.d.ts` は `window.api` のグローバル拡張のみ定義します。
 

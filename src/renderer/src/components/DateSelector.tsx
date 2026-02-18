@@ -13,6 +13,7 @@ type DateSelectorProps = {
   dayInputRef: React.RefObject<HTMLInputElement | null>
   onToggleEditor: () => void
   onCancelEditor: () => void
+  onSetToday: () => void
   onSubmitEditor: () => void
   onYearInputChange: (value: string) => void
   onMonthInputChange: (value: string) => void
@@ -36,6 +37,7 @@ export const DateSelector = ({
   dayInputRef,
   onToggleEditor,
   onCancelEditor,
+  onSetToday,
   onSubmitEditor,
   onYearInputChange,
   onMonthInputChange,
@@ -99,6 +101,9 @@ export const DateSelector = ({
           <div className="date-editor-actions">
             <button className="date-editor-action cancel" type="button" onClick={onCancelEditor}>
               キャンセル
+            </button>
+            <button className="date-editor-action today" type="button" onClick={onSetToday}>
+              今日
             </button>
             <button className="date-editor-action ok" type="button" onClick={onSubmitEditor}>
               OK

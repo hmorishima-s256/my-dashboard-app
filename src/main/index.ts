@@ -16,6 +16,7 @@ import { loadAppSettings, saveAppSettings } from './appSettings'
 import { createCalendarPublisher } from './services/calendarPublisher'
 import { createAutoFetchScheduler } from './services/autoFetchScheduler'
 import { applyWindowsAutoLaunchSetting } from './services/autoLaunch'
+import { createTaskStoreService } from './services/taskStore'
 import { registerMainIpcHandlers } from './ipc/registerMainIpcHandlers'
 
 const START_HIDDEN_ARG = '--hidden'
@@ -26,7 +27,7 @@ let tray: Tray | null = null
 let isQuitting = false
 let shouldStartHidden = process.argv.includes(START_HIDDEN_ARG)
 let currentUser: UserProfile | null = null
-let settings: AppSettings = { autoFetchTime: null, autoFetchIntervalMinutes: null }
+let settings: AppSettings = { autoFetchTime: null, autoFetchIntervalMinutes: null, taskTimeDisplayMode: 'hourMinute' }
 let lastAutoFetchDateKey: string | null = null
 let lastIntervalFetchAtMs: number | null = null
 
@@ -56,9 +57,14 @@ const autoFetchScheduler = createAutoFetchScheduler({
   }
 })
 
+const taskStoreService = createTaskStoreService({
+  getCurrentUser: () => currentUser
+})
+
 const quitApplication = (): void => {
   isQuitting = true
   autoFetchScheduler.stop()
+  void taskStoreService.clearGuestData()
   if (tray) {
     tray.destroy()
     tray = null
@@ -204,7 +210,11 @@ app.whenReady().then(async () => {
     fetchAndPublishByDate: calendarPublisher.fetchAndPublishByDate,
     publishEmptyManualUpdate: calendarPublisher.publishEmptyManualUpdate,
     ensureMainWindowVisible,
-    buildDateKey
+    buildDateKey,
+    taskGetAll: taskStoreService.getAll,
+    taskAdd: taskStoreService.add,
+    taskUpdate: taskStoreService.update,
+    taskDelete: taskStoreService.remove
   })
 
   app.on('browser-window-created', (_, window) => {
@@ -226,6 +236,7 @@ app.whenReady().then(async () => {
 app.on('before-quit', () => {
   isQuitting = true
   autoFetchScheduler.stop()
+  void taskStoreService.clearGuestData()
 })
 
 app.on('window-all-closed', () => {

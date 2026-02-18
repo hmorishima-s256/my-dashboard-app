@@ -1,4 +1,4 @@
-import type { IntervalUnit } from '../types/ui'
+import type { IntervalUnit, TaskTimeDisplayMode } from '../types/ui'
 
 type SettingsModalProps = {
   isOpen: boolean
@@ -6,11 +6,13 @@ type SettingsModalProps = {
   autoFetchTime: string
   autoFetchIntervalValue: string
   autoFetchIntervalUnit: IntervalUnit
+  taskTimeDisplayMode: TaskTimeDisplayMode
   isSavingSettings: boolean
   onClose: () => void
   onChangeAutoFetchTime: (value: string) => void
   onChangeAutoFetchIntervalValue: (value: string) => void
   onChangeAutoFetchIntervalUnit: (unit: IntervalUnit) => void
+  onChangeTaskTimeDisplayMode: (mode: TaskTimeDisplayMode) => void
   onClear: () => void
   onSave: () => void
 }
@@ -22,11 +24,13 @@ export const SettingsModal = ({
   autoFetchTime,
   autoFetchIntervalValue,
   autoFetchIntervalUnit,
+  taskTimeDisplayMode,
   isSavingSettings,
   onClose,
   onChangeAutoFetchTime,
   onChangeAutoFetchIntervalValue,
   onChangeAutoFetchIntervalUnit,
+  onChangeTaskTimeDisplayMode,
   onClear,
   onSave
 }: SettingsModalProps): React.JSX.Element | null => {
@@ -77,6 +81,18 @@ export const SettingsModal = ({
             <option value="hours">時間ごと</option>
           </select>
         </div>
+        <label className="settings-label" htmlFor="task-time-display-mode">
+          タスク時間表記
+        </label>
+        <select
+          id="task-time-display-mode"
+          className="settings-time-input"
+          value={taskTimeDisplayMode}
+          onChange={(event) => onChangeTaskTimeDisplayMode(event.target.value as TaskTimeDisplayMode)}
+        >
+          <option value="hourMinute">6時間45分</option>
+          <option value="decimal">6.75時間</option>
+        </select>
         <div className="settings-actions">
           <button className="settings-action-button secondary" onClick={onClose} disabled={isSavingSettings}>
             閉じる

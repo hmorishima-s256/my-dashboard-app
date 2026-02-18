@@ -125,6 +125,15 @@ export const useDateEditor = () => {
     setIsDateEditorOpen(false)
   }
 
+  // 日付入力欄へ今日の日付をセットする（確定はしない）
+  const setTodayInputs = (): void => {
+    const today = new Date()
+    setYearInput(String(today.getFullYear()))
+    setMonthInput(String(today.getMonth() + 1).padStart(2, '0'))
+    setDayInput(String(today.getDate()).padStart(2, '0'))
+    resetDateEditorError()
+  }
+
   const handleYearInputChange = (value: string): void => {
     const normalized = normalizeNumericText(value).slice(0, 4)
     setYearInput(normalized)
@@ -188,6 +197,7 @@ export const useDateEditor = () => {
     setSelectedDate,
     toggleEditor,
     closeEditor,
+    setTodayInputs,
     submitEditor,
     handleYearInputChange,
     handleMonthInputChange,

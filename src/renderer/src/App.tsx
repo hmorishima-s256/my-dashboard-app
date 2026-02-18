@@ -5,7 +5,7 @@ import { LogoutConfirmModal } from './components/LogoutConfirmModal'
 import { ProfileSection } from './components/ProfileSection'
 import { ScheduleTable } from './components/ScheduleTable'
 import { SettingsModal } from './components/SettingsModal'
-import { TaskMockList } from './components/TaskMockList'
+import { TaskBoard } from './components/TaskBoard'
 import { formatDateTime, formatInputDate } from './lib/dateUtils'
 import { buildIntervalMinutes, parseIntervalForInput } from './lib/settingsUtils'
 import { useDateEditor } from './hooks/useDateEditor'
@@ -17,6 +17,7 @@ import type {
   CalendarUpdatePayload,
   DashboardTab,
   IntervalUnit,
+  TaskTimeDisplayMode,
   UserProfile
 } from './types/ui'
 
@@ -30,6 +31,9 @@ function App(): React.JSX.Element {
   const [isSavingSettings, setIsSavingSettings] = useState(false)
   const [autoFetchIntervalValue, setAutoFetchIntervalValue] = useState('')
   const [autoFetchIntervalUnit, setAutoFetchIntervalUnit] = useState<IntervalUnit>('minutes')
+  // 設定モーダル編集中の時間表記モード（保存時のみ反映する）
+  const [taskTimeDisplayModeDraft, setTaskTimeDisplayModeDraft] = useState<TaskTimeDisplayMode>('hourMinute')
+  const [taskTimeDisplayMode, setTaskTimeDisplayMode] = useState<TaskTimeDisplayMode>('hourMinute')
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null)
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false)
   const [isAuthProcessing, setIsAuthProcessing] = useState(false)
@@ -48,6 +52,8 @@ function App(): React.JSX.Element {
     const parsedInterval = parseIntervalForInput(loadedSettings.autoFetchIntervalMinutes)
     setAutoFetchIntervalValue(parsedInterval.value)
     setAutoFetchIntervalUnit(parsedInterval.unit)
+    setTaskTimeDisplayModeDraft(loadedSettings.taskTimeDisplayMode)
+    setTaskTimeDisplayMode(loadedSettings.taskTimeDisplayMode)
   }
 
   useEffect(() => {
@@ -150,7 +156,8 @@ function App(): React.JSX.Element {
     try {
       const savedSettings = await window.api.saveSettings({
         autoFetchTime: autoFetchTime || null,
-        autoFetchIntervalMinutes: buildIntervalMinutes(autoFetchIntervalValue, autoFetchIntervalUnit)
+        autoFetchIntervalMinutes: buildIntervalMinutes(autoFetchIntervalValue, autoFetchIntervalUnit),
+        taskTimeDisplayMode: taskTimeDisplayModeDraft
       })
       applyLoadedSettings(savedSettings)
       setIsSettingsOpen(false)
@@ -167,7 +174,8 @@ function App(): React.JSX.Element {
     try {
       const savedSettings = await window.api.saveSettings({
         autoFetchTime: null,
-        autoFetchIntervalMinutes: null
+        autoFetchIntervalMinutes: null,
+        taskTimeDisplayMode: taskTimeDisplayModeDraft
       })
       applyLoadedSettings(savedSettings)
       setIsSettingsOpen(false)
@@ -198,11 +206,11 @@ function App(): React.JSX.Element {
     }
   }, [dateEditor, isSettingsOpen])
 
-  const mockTasks = [
-    `${dateEditor.selectedDateLabel} のタスク: メール確認`,
-    `${dateEditor.selectedDateLabel} のタスク: 定例MTG準備`,
-    `${dateEditor.selectedDateLabel} のタスク: 進捗メモ整理`
-  ]
+  // 設定モーダルを開くときに保存済み値をドラフトへ反映する
+  const openSettingsModal = (): void => {
+    setTaskTimeDisplayModeDraft(taskTimeDisplayMode)
+    setIsSettingsOpen(true)
+  }
 
   return (
     <div className="container">
@@ -220,6 +228,7 @@ function App(): React.JSX.Element {
           dayInputRef={dateEditor.dayInputRef}
           onToggleEditor={dateEditor.toggleEditor}
           onCancelEditor={dateEditor.closeEditor}
+          onSetToday={dateEditor.setTodayInputs}
           onSubmitEditor={dateEditor.submitEditor}
           onYearInputChange={dateEditor.handleYearInputChange}
           onMonthInputChange={dateEditor.handleMonthInputChange}
@@ -246,15 +255,25 @@ function App(): React.JSX.Element {
         </div>
       </header>
 
-      <button className="settings-button" onClick={() => setIsSettingsOpen(true)} aria-label="設定">
-        ⚙
-      </button>
-
       <section className="content-panel">
-        {activeTab === 'schedule' ? <ScheduleTable rows={rows} /> : <TaskMockList taskNames={mockTasks} />}
+        {activeTab === 'schedule' ? (
+          <ScheduleTable rows={rows} />
+        ) : (
+          <TaskBoard
+            selectedDate={dateEditor.selectedDate}
+            selectedDateLabel={dateEditor.selectedDateLabel}
+            currentUser={currentUser}
+            taskTimeDisplayMode={taskTimeDisplayMode}
+          />
+        )}
       </section>
 
-      <div className="updated-at">更新日時: {lastUpdatedAt ? formatDateTime(lastUpdatedAt) : '-'}</div>
+      <footer className="dashboard-footer">
+        <button className="settings-button" onClick={openSettingsModal} aria-label="設定">
+          ⚙
+        </button>
+        <div className="updated-at">更新日時: {lastUpdatedAt ? formatDateTime(lastUpdatedAt) : '-'}</div>
+      </footer>
 
       <SettingsModal
         isOpen={isSettingsOpen}
@@ -262,11 +281,13 @@ function App(): React.JSX.Element {
         autoFetchTime={autoFetchTime}
         autoFetchIntervalValue={autoFetchIntervalValue}
         autoFetchIntervalUnit={autoFetchIntervalUnit}
+        taskTimeDisplayMode={taskTimeDisplayModeDraft}
         isSavingSettings={isSavingSettings}
         onClose={() => setIsSettingsOpen(false)}
         onChangeAutoFetchTime={setAutoFetchTime}
         onChangeAutoFetchIntervalValue={setAutoFetchIntervalValue}
         onChangeAutoFetchIntervalUnit={setAutoFetchIntervalUnit}
+        onChangeTaskTimeDisplayMode={setTaskTimeDisplayModeDraft}
         onClear={() => void handleClearAutoFetchTime()}
         onSave={() => void handleSaveSettings()}
       />

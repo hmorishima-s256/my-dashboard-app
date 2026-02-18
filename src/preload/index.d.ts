@@ -5,6 +5,9 @@ import type {
   AuthLogoutResult,
   CalendarTableRow,
   CalendarUpdatePayload,
+  Task,
+  TaskCreateInput,
+  TaskListResponse,
   UserProfile
 } from '../shared/contracts'
 
@@ -19,6 +22,10 @@ declare global {
       getCalendar: (targetDate?: string) => Promise<CalendarTableRow[]>
       getSettings: () => Promise<AppSettings>
       saveSettings: (settings: AppSettings) => Promise<AppSettings>
+      taskGetAll: (userId: string, targetDate: string) => Promise<TaskListResponse>
+      taskAdd: (taskInput: TaskCreateInput) => Promise<Task>
+      taskUpdate: (task: Task) => Promise<Task | null>
+      taskDelete: (taskId: string) => Promise<boolean>
       getDefaultProfileIconUrl: () => Promise<string>
       authLogin: () => Promise<AuthLoginResult>
       authLogout: () => Promise<AuthLogoutResult>

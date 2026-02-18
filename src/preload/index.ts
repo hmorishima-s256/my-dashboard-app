@@ -5,6 +5,9 @@ import type {
   AuthLoginResult,
   AuthLogoutResult,
   CalendarUpdatePayload,
+  Task,
+  TaskCreateInput,
+  TaskListResponse,
   UserProfile
 } from '../shared/contracts'
 
@@ -17,6 +20,11 @@ const api = {
   getSettings: () => ipcRenderer.invoke('get-settings'),
   saveSettings: (settings: AppSettings) => ipcRenderer.invoke('save-settings', settings),
   getDefaultProfileIconUrl: () => ipcRenderer.invoke('get-default-profile-icon-url') as Promise<string>,
+  taskGetAll: (userId: string, targetDate: string) =>
+    ipcRenderer.invoke('task:get-all', userId, targetDate) as Promise<TaskListResponse>,
+  taskAdd: (taskInput: TaskCreateInput) => ipcRenderer.invoke('task:add', taskInput) as Promise<Task>,
+  taskUpdate: (task: Task) => ipcRenderer.invoke('task:update', task) as Promise<Task | null>,
+  taskDelete: (taskId: string) => ipcRenderer.invoke('task:delete', taskId) as Promise<boolean>,
   authLogin: () => ipcRenderer.invoke('auth:login') as Promise<AuthLoginResult>,
   authLogout: () => ipcRenderer.invoke('auth:logout') as Promise<AuthLogoutResult>,
   authGetCurrentUser: () => ipcRenderer.invoke('auth:get-current-user') as Promise<UserProfile | null>,
