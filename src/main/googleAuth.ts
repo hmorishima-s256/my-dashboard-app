@@ -1,4 +1,4 @@
-import { shell } from 'electron'
+import { safeStorage, shell } from 'electron'
 import http from 'http'
 import os from 'os'
 import path from 'path'
@@ -6,28 +6,13 @@ import fs from 'fs/promises'
 import { URL, pathToFileURL } from 'url'
 import { google } from 'googleapis'
 import { OAuth2Client } from 'google-auth-library'
+import type { AuthLogoutResult, CalendarTableRow, UserProfile } from '../shared/contracts'
 
 type AuthClient = OAuth2Client
 
-// 画面テーブル表示用に整形した1行分の型
-export type CalendarTableRow = {
-  calendarName: string
-  subject: string
-  dateTime: string
-}
-
-// ログイン済みユーザー情報
-export type UserProfile = {
-  name: string
-  email: string
-  iconUrl: string
-}
-
 // ログアウトAPIの戻り値
-export type LogoutResult = {
-  success: boolean
-  message?: string
-}
+export type LogoutResult = AuthLogoutResult
+export type { CalendarTableRow, UserProfile }
 
 type OAuthClientConfig = {
   clientId: string
@@ -37,6 +22,19 @@ type OAuthClientConfig = {
 
 type CurrentUserPointer = {
   email: string
+}
+
+type AuthorizedUserToken = {
+  type: 'authorized_user'
+  client_id: string
+  client_secret: string
+  refresh_token?: string
+}
+
+type EncryptedTokenContainer = {
+  version: 1
+  encrypted: true
+  data: string
 }
 
 // 認証スコープ（カレンダー + ユーザー情報）
@@ -78,6 +76,9 @@ export const APP_SHARED_CONFIG_DIR = path.join(APP_LOCAL_ROOT_PATH, '_shared')
 const CURRENT_USER_FILE_PATH = path.join(APP_SHARED_CONFIG_DIR, 'current-user.json')
 const CREDENTIALS_PATH = path.join(process.cwd(), 'credentials.json')
 const DEFAULT_PROFILE_ICON_PATH = path.join(APP_SHARED_CONFIG_DIR, 'electron.svg')
+const GOOGLE_API_RETRY_MAX_ATTEMPTS = 3
+const GOOGLE_API_RETRY_BASE_DELAY_MS = 500
+const GOOGLE_API_CONCURRENCY = 4
 
 // _shared/electron.svg が存在しない場合に書き込むデフォルトSVG
 const DEFAULT_PROFILE_ICON_SVG = `<?xml version="1.0" encoding="UTF-8"?>
@@ -104,6 +105,74 @@ export const getUserSettingsDir = (email: string): string => path.join(APP_LOCAL
 // ユーザーごとの token/profile ファイルパス
 const getTokenPath = (email: string): string => path.join(getUserSettingsDir(email), 'token.json')
 const getUserProfilePath = (email: string): string => path.join(getUserSettingsDir(email), 'user-profile.json')
+
+// 待機処理（リトライ時のバックオフ）
+const sleep = async (milliseconds: number): Promise<void> => {
+  await new Promise((resolve) => setTimeout(resolve, milliseconds))
+}
+
+// Google API の一時障害（429/5xx/ネットワーク系）か判定する
+const isRetryableGoogleError = (error: unknown): boolean => {
+  const maybeError = error as { code?: number | string; response?: { status?: number } }
+  const status = maybeError.response?.status
+  if (status === 429) return true
+  if (typeof status === 'number' && status >= 500) return true
+
+  if (typeof maybeError.code === 'string') {
+    return ['ECONNRESET', 'ETIMEDOUT', 'EAI_AGAIN', 'ENOTFOUND', 'ECONNABORTED'].includes(
+      maybeError.code
+    )
+  }
+
+  return false
+}
+
+// 失敗時に指数バックオフで再試行する共通処理
+const withRetry = async <T>(operation: () => Promise<T>): Promise<T> => {
+  let lastError: unknown
+  for (let attempt = 1; attempt <= GOOGLE_API_RETRY_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      return await operation()
+    } catch (error) {
+      lastError = error
+      const shouldRetry = isRetryableGoogleError(error) && attempt < GOOGLE_API_RETRY_MAX_ATTEMPTS
+      if (!shouldRetry) {
+        throw error
+      }
+      const delayMs = GOOGLE_API_RETRY_BASE_DELAY_MS * 2 ** (attempt - 1)
+      await sleep(delayMs)
+    }
+  }
+  throw lastError
+}
+
+// 配列を件数制限付きで並列実行する
+const mapWithConcurrencyLimit = async <T, R>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T, index: number) => Promise<R>
+): Promise<R[]> => {
+  if (items.length === 0) {
+    return []
+  }
+
+  const results = new Array<R>(items.length)
+  let nextIndex = 0
+  const runWorker = async (): Promise<void> => {
+    while (true) {
+      const currentIndex = nextIndex
+      nextIndex += 1
+      if (currentIndex >= items.length) {
+        return
+      }
+      results[currentIndex] = await worker(items[currentIndex], currentIndex)
+    }
+  }
+
+  const workerCount = Math.max(1, Math.min(concurrency, items.length))
+  await Promise.all(Array.from({ length: workerCount }, () => runWorker()))
+  return results
+}
 
 // 共通ディレクトリにデフォルトアイコンなどの共通ファイルを用意する
 export const ensureSharedFiles = async (): Promise<void> => {
@@ -191,7 +260,27 @@ async function loadSavedCredentialsIfExist(): Promise<AuthClient | null> {
   try {
     const tokenPath = getTokenPath(pointer.email)
     const content = await fs.readFile(tokenPath, 'utf-8')
-    const credentials = JSON.parse(content)
+    const parsedToken = JSON.parse(content) as AuthorizedUserToken | EncryptedTokenContainer
+    let credentials: AuthorizedUserToken
+
+    // token.json は暗号化形式と平文形式の両方を読み込み可能にする
+    if (
+      typeof parsedToken === 'object' &&
+      parsedToken !== null &&
+      'encrypted' in parsedToken &&
+      parsedToken.encrypted === true &&
+      'data' in parsedToken &&
+      typeof parsedToken.data === 'string'
+    ) {
+      if (!safeStorage.isEncryptionAvailable()) {
+        return null
+      }
+      const decrypted = safeStorage.decryptString(Buffer.from(parsedToken.data, 'base64'))
+      credentials = JSON.parse(decrypted) as AuthorizedUserToken
+    } else {
+      credentials = parsedToken as AuthorizedUserToken
+    }
+
     return google.auth.fromJSON(credentials) as unknown as AuthClient
   } catch {
     return null
@@ -211,7 +300,20 @@ async function saveCredentials(client: AuthClient, email: string): Promise<void>
   })
   const tokenPath = getTokenPath(email)
   await fs.mkdir(path.dirname(tokenPath), { recursive: true })
-  await fs.writeFile(tokenPath, payload)
+
+  // token.json は安全な実行環境で暗号化保存する（非対応環境は平文フォールバック）
+  if (safeStorage.isEncryptionAvailable()) {
+    const encrypted = safeStorage.encryptString(payload)
+    const encryptedPayload: EncryptedTokenContainer = {
+      version: 1,
+      encrypted: true,
+      data: encrypted.toString('base64')
+    }
+    await fs.writeFile(tokenPath, JSON.stringify(encryptedPayload, null, 2), 'utf-8')
+    return
+  }
+
+  await fs.writeFile(tokenPath, payload, 'utf-8')
 }
 
 // OAuth2 API からプロフィール情報（名前/メール/アイコン）を取得
@@ -433,48 +535,53 @@ export async function getEventsByDate(targetDate: string): Promise<CalendarTable
   const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate())
   const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59)
 
-  // 新実装: 登録済みの全カレンダー(calendarList)を対象に当日予定を集約
-  const calendarListRes = await calendar.calendarList.list()
+  // 登録済みの全カレンダー(calendarList)を対象に予定を集約する（リトライあり）
+  const calendarListRes = await withRetry(() => calendar.calendarList.list())
   const calendars = calendarListRes.data.items || []
-  const rows: CalendarTableRow[] = []
 
-  for (const cal of calendars) {
-    if (!cal.id) continue
+  // カレンダーごとの予定取得を並列化しつつ、429/5xx はリトライする
+  const groupedRows = await mapWithConcurrencyLimit(
+    calendars,
+    GOOGLE_API_CONCURRENCY,
+    async (cal): Promise<CalendarTableRow[]> => {
+      const calendarId = cal.id
+      if (!calendarId) return []
 
-    const res = await calendar.events.list({
-      calendarId: cal.id,
-      timeMin: startOfDay.toISOString(),
-      timeMax: endOfDay.toISOString(),
-      singleEvents: true,
-      orderBy: 'startTime'
-    })
+      const res = await withRetry(() =>
+        calendar.events.list({
+          calendarId,
+          timeMin: startOfDay.toISOString(),
+          timeMax: endOfDay.toISOString(),
+          singleEvents: true,
+          orderBy: 'startTime'
+        })
+      )
 
-    const items = res.data.items || []
-    for (const event of items) {
-      // all-day と dateTime の両方に対応して表示用文字列へ整形
-      // 非終日予定は1行目:開始時刻、2行目:終了時刻（ラベルなし）で表示する
-      const startDateTime = event.start?.dateTime || ''
-      const endDateTime = event.end?.dateTime || ''
-      const dateTime = event.start?.date
-        ? '1day'
-        : startDateTime
-          ? endDateTime
-            ? `${formatJstTime(startDateTime)}\n${formatJstTime(endDateTime)}`
-            : formatJstTime(startDateTime)
-          : ''
+      const items = res.data.items || []
+      const calendarName = normalizeCalendarName(cal.summaryOverride || cal.summary || calendarId)
+      return items.map((event) => {
+        // all-day と dateTime の両方に対応して表示用文字列へ整形
+        // 非終日予定は1行目:開始時刻、2行目:終了時刻（ラベルなし）で表示する
+        const startDateTime = event.start?.dateTime || ''
+        const endDateTime = event.end?.dateTime || ''
+        const dateTime = event.start?.date
+          ? '1day'
+          : startDateTime
+            ? endDateTime
+              ? `${formatJstTime(startDateTime)}\n${formatJstTime(endDateTime)}`
+              : formatJstTime(startDateTime)
+            : ''
 
-      // summaryOverride があれば優先し、なければ summary/id を利用
-      const calendarName = normalizeCalendarName(cal.summaryOverride || cal.summary || cal.id)
-
-      rows.push({
-        calendarName,
-        subject: event.summary || '(no title)',
-        dateTime
+        return {
+          calendarName,
+          subject: event.summary || '(no title)',
+          dateTime
+        }
       })
     }
-  }
+  )
 
-  return rows
+  return groupedRows.flat()
 }
 
 // 今日の予定を取得するメイン関数

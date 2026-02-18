@@ -1,50 +1,21 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
+import type {
+  AppSettings,
+  AuthLoginResult,
+  AuthLogoutResult,
+  CalendarTableRow,
+  CalendarUpdatePayload,
+  UserProfile
+} from '../shared/contracts'
 
-// Renderer テーブル表示で使う1行分の型
-type CalendarTableRow = {
-  calendarName: string
-  subject: string
-  dateTime: string
-}
-
-// 設定モーダルで保持する設定値の型
-type AppSettings = {
-  autoFetchTime: string | null
-  autoFetchIntervalMinutes: number | null
-}
-
-// 認証済みユーザー情報の型
-type UserProfile = {
-  name: string
-  email: string
-  iconUrl: string
-}
-
-// ログイン実行結果の型
-type AuthLoginResult = {
-  success: boolean
-  user: UserProfile | null
-  message: string
-}
-
-// ログアウト実行結果の型
-type AuthLogoutResult = {
-  success: boolean
-  message?: string
-}
-
-// Main から配信されるカレンダー更新イベントの型
-type CalendarUpdatePayload = {
-  events: CalendarTableRow[]
-  updatedAt: string
-  source: 'manual' | 'auto'
-}
-
+// Renderer 側の window 拡張定義
 declare global {
   interface Window {
     electron: ElectronAPI
     api: {
+      // 旧実装: 引数なしで当日予定を取得
       // getCalendar: () => Promise<CalendarTableRow[]>
+      // 指定日（yyyy-mm-dd）の予定を取得
       getCalendar: (targetDate?: string) => Promise<CalendarTableRow[]>
       getSettings: () => Promise<AppSettings>
       saveSettings: (settings: AppSettings) => Promise<AppSettings>

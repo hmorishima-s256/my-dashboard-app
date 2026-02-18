@@ -1,41 +1,14 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
+import type {
+  AppSettings,
+  AuthLoginResult,
+  AuthLogoutResult,
+  CalendarUpdatePayload,
+  UserProfile
+} from '../shared/contracts'
 
-type CalendarTableRow = {
-  calendarName: string
-  subject: string
-  dateTime: string
-}
-
-type AppSettings = {
-  autoFetchTime: string | null
-  autoFetchIntervalMinutes: number | null
-}
-
-type UserProfile = {
-  name: string
-  email: string
-  iconUrl: string
-}
-
-type AuthLoginResult = {
-  success: boolean
-  user: UserProfile | null
-  message: string
-}
-
-type AuthLogoutResult = {
-  success: boolean
-  message?: string
-}
-
-type CalendarUpdatePayload = {
-  events: CalendarTableRow[]
-  updatedAt: string
-  source: 'manual' | 'auto'
-}
-
-// Custom APIs for renderer
+// Renderer へ公開する IPC API
 // const api = {
 //   getCalendar: () => ipcRenderer.invoke('get-calendar')
 // }
@@ -58,9 +31,8 @@ const api = {
   }
 }
 
-// Use `contextBridge` APIs to expose Electron APIs to
-// renderer only if context isolation is enabled, otherwise
-// just add to the DOM global.
+// contextIsolation 有効時は contextBridge 経由で安全に公開する
+// 無効時は従来どおり window へ直接公開する
 if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', electronAPI)
@@ -69,8 +41,8 @@ if (process.contextIsolated) {
     console.error(error)
   }
 } else {
-  // @ts-ignore (define in dts)
+  // @ts-ignore（型定義は index.d.ts 側で宣言）
   window.electron = electronAPI
-  // @ts-ignore (define in dts)
+  // @ts-ignore（型定義は index.d.ts 側で宣言）
   window.api = api
 }

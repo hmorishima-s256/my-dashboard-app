@@ -1,12 +1,8 @@
 import path from 'path'
 import fs from 'fs/promises'
-import { type UserProfile, APP_SHARED_CONFIG_DIR, getUserSettingsDir } from './googleAuth'
-
-// 自動取得設定の保存型
-export type AppSettings = {
-  autoFetchTime: string | null
-  autoFetchIntervalMinutes: number | null
-}
+import { APP_SHARED_CONFIG_DIR, getUserSettingsDir } from './googleAuth'
+import type { AppSettings, UserProfile } from '../shared/contracts'
+export type { AppSettings } from '../shared/contracts'
 
 const DEFAULT_SETTINGS: AppSettings = {
   autoFetchTime: null,

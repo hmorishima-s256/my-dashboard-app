@@ -1,92 +1,70 @@
 # 05. IPC仕様
 
-本アプリでは `src/preload/index.ts` で `window.api` を公開し、Renderer はそれを利用して Main と通信します。
+本アプリは Preload (`src/preload/index.ts`) で `window.api` を公開し、Renderer はこの API のみを使用して Main と通信します。
 
-## 5.1 API 一覧
+## 5.1 `window.api` 一覧
 
 | API | 引数 | 戻り値 | 説明 |
 |---|---|---|---|
-| `getCalendar` | `targetDate?: string` (`yyyy-mm-dd`) | `Promise<CalendarTableRow[]>` | 指定日の予定取得 |
-| `getSettings` | なし | `Promise<AppSettings>` | 現在ユーザーの設定取得 |
-| `saveSettings` | `AppSettings` | `Promise<AppSettings>` | 設定保存（正規化後） |
-| `getDefaultProfileIconUrl` | なし | `Promise<string>` | 共通アイコン URL 取得（現UIでは未使用） |
+| `getCalendar` | `targetDate?: string` (`yyyy-mm-dd`) | `Promise<CalendarTableRow[]>` | 指定日予定を取得 |
+| `getSettings` | なし | `Promise<AppSettings>` | 現在ユーザー設定を取得 |
+| `saveSettings` | `AppSettings` | `Promise<AppSettings>` | 設定を保存（正規化） |
+| `getDefaultProfileIconUrl` | なし | `Promise<string>` | 共有デフォルトアイコン URL を取得 |
 | `authLogin` | なし | `Promise<AuthLoginResult>` | Google ログイン実行 |
 | `authLogout` | なし | `Promise<AuthLogoutResult>` | ログアウト実行 |
-| `authGetCurrentUser` | なし | `Promise<UserProfile \| null>` | 起動時のログイン状態取得 |
-| `onCalendarUpdated` | `callback` | `() => void` | 予定更新通知の購読解除関数を返却 |
+| `authGetCurrentUser` | なし | `Promise<UserProfile \| null>` | 現在ユーザー取得 |
+| `onCalendarUpdated` | `(payload) => void` | `() => void` | 更新通知購読（解除関数返却） |
 
-## 5.2 型定義
+## 5.2 Main 側 IPC ハンドラ
 
-### `CalendarTableRow`
+定義箇所: `src/main/ipc/registerMainIpcHandlers.ts`
 
-```ts
-type CalendarTableRow = {
-  calendarName: string
-  subject: string
-  dateTime: string
-}
-```
+- `get-calendar`
+  - `targetDate` が `yyyy-mm-dd` 形式でなければ当日へフォールバック
+  - 取得後に `calendar-updated` を配信
+- `get-settings`
+  - 現在メモリ上の設定を返却
+- `save-settings`
+  - 保存後に自動取得状態をリセットしスケジューラ再始動
+- `get-default-profile-icon-url`
+  - `_shared/electron.svg` の file URL を返却
+- `auth:get-current-user`
+  - 現在ユーザー情報を返却
+- `auth:login`
+  - ログイン成功時にユーザー/設定反映 + 当日同期 + 画面前面化
+- `auth:logout`
+  - `token.json` 削除後に状態初期化、空配信
 
-### `AppSettings`
+## 5.3 共有型定義
 
-```ts
-type AppSettings = {
-  autoFetchTime: string | null
-  autoFetchIntervalMinutes: number | null
-}
-```
+型は `src/shared/contracts.ts` で一元管理します。
 
-### `UserProfile`
+- `CalendarTableRow`
+- `AppSettings`
+- `UserProfile`
+- `AuthLoginResult`
+- `AuthLogoutResult`
+- `CalendarUpdatePayload`
 
-```ts
-type UserProfile = {
-  name: string
-  email: string
-  iconUrl: string
-}
-```
+`src/preload/index.d.ts` は `window.api` のグローバル拡張のみ定義します。
 
-### `AuthLoginResult`
-
-```ts
-type AuthLoginResult = {
-  success: boolean
-  user: UserProfile | null
-  message: string
-}
-```
-
-### `AuthLogoutResult`
-
-```ts
-type AuthLogoutResult = {
-  success: boolean
-  message?: string
-}
-```
-
-### `CalendarUpdatePayload`
-
-```ts
-type CalendarUpdatePayload = {
-  events: CalendarTableRow[]
-  updatedAt: string
-  source: 'manual' | 'auto'
-}
-```
-
-## 5.3 通知チャネル
+## 5.4 通知チャネル
 
 - チャネル名: `calendar-updated`
-- 送信元: Main
-- 受信側: Renderer
-- 主な送信タイミング
-  - 手動同期後
-  - 自動取得後
-  - ログアウト後（空配列でクリア）
+- ペイロード:
+  - `events: CalendarTableRow[]`
+  - `updatedAt: string` (ISO 8601)
+  - `source: 'manual' | 'auto'`
+- 送信タイミング:
+  - 手動同期
+  - 自動取得
+  - ログアウト時クリア
 
-## 5.4 実装上の注意
+## 5.5 注意事項
 
-- Renderer は Node API を直接呼ばず `window.api` のみ使用
-- 型定義は `src/preload/index.d.ts` で管理
-- API 追加時は `index.ts` と `index.d.ts` の両方更新が必須
+- Renderer は Node API を直接呼ばない
+- API 追加時は以下を同時更新する
+  - `src/shared/contracts.ts`（必要時）
+  - `src/preload/index.ts`
+  - `src/preload/index.d.ts`
+  - `src/main/ipc/registerMainIpcHandlers.ts`
