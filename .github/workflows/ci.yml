@@ -1,0 +1,58 @@
+# CI: development向けPRで品質チェックを実行する
+name: PR CI (development)
+
+on:
+  # PR作成/更新でCIを回す
+  pull_request:
+    branches:
+      - development
+
+  # 手動でも回せるようにしておく（任意）
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-ci-development-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality-check:
+    # GitHubが用意しているUbuntuランナーで実行する
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      # リポジトリのソースコードをチェックアウトする
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Node.jsをセットアップする（npmキャッシュも有効化）
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          # Nodeのバージョンは必要なら固定（例：20）
+          node-version: '20'
+          # npmの依存キャッシュを有効化（高速化）
+          cache: 'npm'
+
+      # lockファイル（package-lock.json）前提のクリーンインストール
+      - name: Install dependencies
+        run: npm ci
+
+      # Prettierフォーマットチェック
+      - name: Format check
+        run: npm run format:check
+
+      # ESLint
+      - name: Lint
+        run: npm run lint
+
+      # TypeScript型チェック（node/web両方）
+      - name: Typecheck
+        run: npm run typecheck
+
+      # Vitest
+      - name: Test
+        run: npm run test
