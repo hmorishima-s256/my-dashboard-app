@@ -69,6 +69,8 @@ export type Task = {
   }
   actual: {
     minutes: number
+    suspendMinutes: number
+    suspendStartedAt: string | null
     logs: TaskActualLog[]
   }
   createdAt: string
@@ -90,6 +92,8 @@ export type TaskCreateInput = {
   }
   actual?: {
     minutes: number
+    suspendMinutes?: number
+    suspendStartedAt?: string | null
     logs?: TaskActualLog[]
   }
 }

@@ -2,12 +2,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import CreatableSelect from 'react-select/creatable'
 import type { SingleValue, StylesConfig } from 'react-select'
 import {
+  calculateActualDurationMinutes,
   calculateDurationMinutes,
   calculateEndTime,
   formatMinutesAsDecimalHours,
   formatMinutesAsDecimalHoursValue,
   formatMinutesAsHourMinute,
+  resumeTaskTracking,
   startTaskTracking,
+  suspendTaskTracking,
   stopTaskTracking
 } from '../lib/taskTimeUtils'
 import { GUEST_USER_ID } from '../types/ui'
@@ -208,6 +211,9 @@ export const TaskBoard = ({
   const [estimatedDurationUnit, setEstimatedDurationUnit] = useState<DurationUnit>('hourMinute')
   const [actualStart, setActualStart] = useState('')
   const [actualEnd, setActualEnd] = useState('')
+  const [suspendDurationInput, setSuspendDurationInput] = useState('')
+  const [suspendDurationMinutes, setSuspendDurationMinutes] = useState(0)
+  const [suspendDurationUnit, setSuspendDurationUnit] = useState<DurationUnit>('hourMinute')
   const [actualDurationInput, setActualDurationInput] = useState('')
   const [actualDurationMinutes, setActualDurationMinutes] = useState(0)
   const [actualDurationUnit, setActualDurationUnit] = useState<DurationUnit>('hourMinute')
@@ -288,6 +294,9 @@ export const TaskBoard = ({
     setEstimatedDurationUnit('hourMinute')
     setActualStart('')
     setActualEnd('')
+    setSuspendDurationInput('')
+    setSuspendDurationMinutes(0)
+    setSuspendDurationUnit('hourMinute')
     setActualDurationInput('')
     setActualDurationMinutes(0)
     setActualDurationUnit('hourMinute')
@@ -308,6 +317,9 @@ export const TaskBoard = ({
     setEstimatedDurationInput(formatDurationValueByUnit(task.estimated.minutes, 'hourMinute'))
     setActualStart(actualRange.start)
     setActualEnd(actualRange.end)
+    setSuspendDurationUnit('hourMinute')
+    setSuspendDurationMinutes(task.actual.suspendMinutes)
+    setSuspendDurationInput(formatDurationValueByUnit(task.actual.suspendMinutes, 'hourMinute'))
     setActualDurationUnit('hourMinute')
     setActualDurationMinutes(task.actual.minutes)
     setActualDurationInput(formatDurationValueByUnit(task.actual.minutes, 'hourMinute'))
@@ -325,11 +337,23 @@ export const TaskBoard = ({
     return calculateDurationMinutes(nextStart, nextEnd)
   }
 
+  const syncActualMinutesByStartAndEnd = (
+    nextStart: string,
+    nextEnd: string,
+    nextSuspendMinutes: number
+  ): number => {
+    if (!nextStart || !nextEnd) return 0
+    return calculateActualDurationMinutes(nextStart, nextEnd, nextSuspendMinutes)
+  }
+
   // 実績入力の開始/終了をログ形式へ変換する
   const buildActualLogsFromInput = (): Task['actual']['logs'] => {
-    if (!actualStart || !actualEnd) return []
+    if (!actualStart) return []
     const startDate = new Date(`${selectedDate}T${actualStart}:00`)
     if (Number.isNaN(startDate.getTime())) return []
+    if (!actualEnd) {
+      return [{ start: startDate.toISOString(), end: null }]
+    }
     const endDate = new Date(`${selectedDate}T${actualEnd}:00`)
     if (Number.isNaN(endDate.getTime())) return []
     if (endDate <= startDate) {
@@ -380,41 +404,75 @@ export const TaskBoard = ({
 
   const handleChangeActualStart = (value: string): void => {
     setActualStart(value)
-    const calculatedEnd = syncEndByStartAndMinutes(value, actualDurationMinutes)
+    if (!value) {
+      setActualDurationMinutes(0)
+      setActualDurationInput('')
+      return
+    }
+    const totalTrackedMinutes = actualDurationMinutes + suspendDurationMinutes
+    const calculatedEnd = syncEndByStartAndMinutes(value, totalTrackedMinutes)
     if (calculatedEnd) {
       setActualEnd(calculatedEnd)
       return
     }
-    const calculatedMinutes = syncMinutesByStartAndEnd(value, actualEnd)
-    if (calculatedMinutes > 0) {
-      setActualDurationMinutes(calculatedMinutes)
-      setActualDurationInput(formatDurationValueByUnit(calculatedMinutes, actualDurationUnit))
-    }
+    const calculatedMinutes = syncActualMinutesByStartAndEnd(value, actualEnd, suspendDurationMinutes)
+    setActualDurationMinutes(calculatedMinutes)
+    setActualDurationInput(formatDurationValueByUnit(calculatedMinutes, actualDurationUnit))
   }
 
   const handleChangeActualEnd = (value: string): void => {
     setActualEnd(value)
-    const calculatedMinutes = syncMinutesByStartAndEnd(actualStart, value)
-    if (calculatedMinutes > 0) {
-      setActualDurationMinutes(calculatedMinutes)
-      setActualDurationInput(formatDurationValueByUnit(calculatedMinutes, actualDurationUnit))
+    if (!value) {
+      setActualDurationMinutes(0)
+      setActualDurationInput('')
+      return
     }
+    const calculatedMinutes = syncActualMinutesByStartAndEnd(actualStart, value, suspendDurationMinutes)
+    setActualDurationMinutes(calculatedMinutes)
+    setActualDurationInput(formatDurationValueByUnit(calculatedMinutes, actualDurationUnit))
   }
 
   const handleChangeActualDurationValue = (value: string): void => {
     setActualDurationInput(value)
     const minutes = parseDurationMinutes(value, actualDurationUnit)
     setActualDurationMinutes(minutes)
-    const calculatedEnd = syncEndByStartAndMinutes(actualStart, minutes)
+    const totalTrackedMinutes = minutes + suspendDurationMinutes
+    const calculatedEnd = syncEndByStartAndMinutes(actualStart, totalTrackedMinutes)
     if (calculatedEnd) {
       setActualEnd(calculatedEnd)
+      return
     }
+    setActualEnd('')
   }
 
   const handleChangeActualDurationUnit = (nextUnit: DurationUnit): void => {
     setActualDurationUnit(nextUnit)
     setActualDurationInput(
       actualDurationMinutes > 0 ? formatDurationValueByUnit(actualDurationMinutes, nextUnit) : ''
+    )
+  }
+
+  const handleChangeSuspendDurationValue = (value: string): void => {
+    setSuspendDurationInput(value)
+    const minutes = parseDurationMinutes(value, suspendDurationUnit)
+    setSuspendDurationMinutes(minutes)
+
+    const recalculatedActualMinutes = syncActualMinutesByStartAndEnd(actualStart, actualEnd, minutes)
+    setActualDurationMinutes(recalculatedActualMinutes)
+    setActualDurationInput(formatDurationValueByUnit(recalculatedActualMinutes, actualDurationUnit))
+
+    if (actualStart) {
+      const recalculatedEnd = syncEndByStartAndMinutes(actualStart, actualDurationMinutes + minutes)
+      if (recalculatedEnd) {
+        setActualEnd(recalculatedEnd)
+      }
+    }
+  }
+
+  const handleChangeSuspendDurationUnit = (nextUnit: DurationUnit): void => {
+    setSuspendDurationUnit(nextUnit)
+    setSuspendDurationInput(
+      suspendDurationMinutes > 0 ? formatDurationValueByUnit(suspendDurationMinutes, nextUnit) : ''
     )
   }
 
@@ -491,13 +549,13 @@ export const TaskBoard = ({
     }
 
     const estimatedMinutes = estimatedDurationMinutes
-    const actualMinutes = actualDurationMinutes
     const hasActualStart = !!actualStart
     const hasActualEnd = !!actualEnd
-    if (hasActualStart !== hasActualEnd) {
-      setErrorMessage('実績の開始時間と終了時間はセットで入力してください。')
+    if (hasActualEnd && !hasActualStart) {
+      setErrorMessage('実績の終了時間を入力する場合は開始時間も入力してください。')
       return
     }
+    const actualMinutes = hasActualStart && !hasActualEnd ? 0 : actualDurationMinutes
     const inputActualLogs = buildActualLogsFromInput()
 
     setIsSaving(true)
@@ -519,6 +577,8 @@ export const TaskBoard = ({
           },
           actual: {
             minutes: actualMinutes,
+            suspendMinutes: suspendDurationMinutes,
+            suspendStartedAt: null,
             logs: inputActualLogs
           }
         }
@@ -551,7 +611,9 @@ export const TaskBoard = ({
         actual: {
           ...editingTask.actual,
           minutes: actualMinutes,
-          logs: hasActualStart && hasActualEnd ? inputActualLogs : editingTask.actual.logs
+          suspendMinutes: suspendDurationMinutes,
+          suspendStartedAt: null,
+          logs: inputActualLogs
         }
       })
       closeTaskModal()
@@ -570,7 +632,12 @@ export const TaskBoard = ({
 
   const handleSuspend = async (task: Task): Promise<void> => {
     const nowIso = new Date().toISOString()
-    await saveTask(stopTaskTracking(task, nowIso, 'suspend'))
+    await saveTask(suspendTaskTracking(task, nowIso))
+  }
+
+  const handleResume = async (task: Task): Promise<void> => {
+    const nowIso = new Date().toISOString()
+    await saveTask(resumeTaskTracking(task, nowIso))
   }
 
   const handleFinish = async (task: Task): Promise<void> => {
@@ -660,12 +727,28 @@ export const TaskBoard = ({
                       <button type="button" onClick={() => openEditModal(task)}>
                         詳細
                       </button>
-                      <button className="start" type="button" onClick={() => void handleStart(task)} disabled={task.status === 'doing'}>
+                      <button
+                        className="start"
+                        type="button"
+                        onClick={() => void handleStart(task)}
+                        disabled={task.status === 'doing' || task.status === 'suspend'}
+                      >
                         開始
                       </button>
-                      <button className="suspend" type="button" onClick={() => void handleSuspend(task)}>
-                        中断
-                      </button>
+                      {task.status === 'suspend' ? (
+                        <button className="resume" type="button" onClick={() => void handleResume(task)}>
+                          再開
+                        </button>
+                      ) : (
+                        <button
+                          className="suspend"
+                          type="button"
+                          onClick={() => void handleSuspend(task)}
+                          disabled={task.status !== 'doing'}
+                        >
+                          中断
+                        </button>
+                      )}
                       <button type="button" onClick={() => void handleFinish(task)}>
                         停止
                       </button>
@@ -766,81 +849,154 @@ export const TaskBoard = ({
                 </select>
               </div>
 
-              <div className="task-field">
-                <label>開始予定</label>
-                <input type="time" value={estimatedStart} onChange={(event) => handleChangeEstimatedStart(event.target.value)} />
-              </div>
+              <div className="task-field task-field-full">
+                <div className="task-group-block">
+                  <div className="task-group-headline">
+                    <span>予定</span>
+                  </div>
+                  <div className="task-group-grid">
+                    <div className="task-field task-field-third">
+                      <label>開始予定</label>
+                      <input
+                        type="time"
+                        value={estimatedStart}
+                        onChange={(event) => handleChangeEstimatedStart(event.target.value)}
+                      />
+                    </div>
 
-              <div className="task-field">
-                <label>終了予定</label>
-                <input type="time" value={estimatedEnd} onChange={(event) => handleChangeEstimatedEnd(event.target.value)} />
-              </div>
+                    <div className="task-field task-field-third">
+                      <label>終了予定</label>
+                      <input
+                        type="time"
+                        value={estimatedEnd}
+                        onChange={(event) => handleChangeEstimatedEnd(event.target.value)}
+                      />
+                    </div>
 
-              <div className="task-field">
-                <label>見積時間</label>
-                <div className="task-duration-input-group">
-                  <input
-                    type={estimatedDurationUnit === 'hourMinute' ? 'text' : 'number'}
-                    inputMode={estimatedDurationUnit === 'hourMinute' ? 'text' : 'decimal'}
-                    min={0}
-                    step={estimatedDurationUnit === 'decimalHours' ? 0.01 : estimatedDurationUnit === 'minutes' ? 1 : undefined}
-                    value={estimatedDurationInput}
-                    onChange={(event) => handleChangeEstimatedDurationValue(event.target.value)}
-                    placeholder={
-                      estimatedDurationUnit === 'hourMinute'
-                        ? '6時間45分'
-                        : estimatedDurationUnit === 'decimalHours'
-                          ? '6.75'
-                          : '405'
-                    }
-                  />
-                  <select
-                    value={estimatedDurationUnit}
-                    onChange={(event) => handleChangeEstimatedDurationUnit(event.target.value as DurationUnit)}
-                  >
-                    <option value="hourMinute">時間</option>
-                    <option value="decimalHours">時間（小数）</option>
-                    <option value="minutes">分</option>
-                  </select>
+                    <div className="task-field task-field-third">
+                      <label>見積時間</label>
+                      <div className="task-duration-input-group">
+                        <input
+                          type={estimatedDurationUnit === 'hourMinute' ? 'text' : 'number'}
+                          inputMode={estimatedDurationUnit === 'hourMinute' ? 'text' : 'decimal'}
+                          min={0}
+                          step={
+                            estimatedDurationUnit === 'decimalHours'
+                              ? 0.01
+                              : estimatedDurationUnit === 'minutes'
+                                ? 1
+                                : undefined
+                          }
+                          value={estimatedDurationInput}
+                          onChange={(event) => handleChangeEstimatedDurationValue(event.target.value)}
+                          placeholder={
+                            estimatedDurationUnit === 'hourMinute'
+                              ? '6時間45分'
+                              : estimatedDurationUnit === 'decimalHours'
+                                ? '6.75'
+                                : '405'
+                          }
+                        />
+                        <select
+                          value={estimatedDurationUnit}
+                          onChange={(event) => handleChangeEstimatedDurationUnit(event.target.value as DurationUnit)}
+                        >
+                          <option value="hourMinute">時間</option>
+                          <option value="decimalHours">時間（小数）</option>
+                          <option value="minutes">分</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="task-field">
-                <label>開始時間</label>
-                <input type="time" value={actualStart} onChange={(event) => handleChangeActualStart(event.target.value)} />
-              </div>
+              <div className="task-field task-field-full">
+                <div className="task-group-block">
+                  <div className="task-group-headline">
+                    <span>実績</span>
+                  </div>
+                  <div className="task-group-grid">
+                    <div className="task-field task-field-half">
+                      <label>開始時間</label>
+                      <input type="time" value={actualStart} onChange={(event) => handleChangeActualStart(event.target.value)} />
+                    </div>
 
-              <div className="task-field">
-                <label>終了時間</label>
-                <input type="time" value={actualEnd} onChange={(event) => handleChangeActualEnd(event.target.value)} />
-              </div>
+                    <div className="task-field task-field-half">
+                      <label>終了時間</label>
+                      <input type="time" value={actualEnd} onChange={(event) => handleChangeActualEnd(event.target.value)} />
+                    </div>
 
-              <div className="task-field">
-                <label>実績時間</label>
-                <div className="task-duration-input-group">
-                  <input
-                    type={actualDurationUnit === 'hourMinute' ? 'text' : 'number'}
-                    inputMode={actualDurationUnit === 'hourMinute' ? 'text' : 'decimal'}
-                    min={0}
-                    step={actualDurationUnit === 'decimalHours' ? 0.01 : actualDurationUnit === 'minutes' ? 1 : undefined}
-                    value={actualDurationInput}
-                    onChange={(event) => handleChangeActualDurationValue(event.target.value)}
-                    placeholder={
-                      actualDurationUnit === 'hourMinute'
-                        ? '6時間45分'
-                        : actualDurationUnit === 'decimalHours'
-                          ? '6.75'
-                          : '405'
-                    }
-                  />
-                  <select
-                    value={actualDurationUnit}
-                    onChange={(event) => handleChangeActualDurationUnit(event.target.value as DurationUnit)}
-                  >
-                    <option value="hourMinute">時間</option>
-                    <option value="decimalHours">時間（小数）</option>
-                    <option value="minutes">分</option>
-                  </select>
+                    <div className="task-field task-field-half">
+                      <label>中断時間</label>
+                      <div className="task-duration-input-group">
+                        <input
+                          type={suspendDurationUnit === 'hourMinute' ? 'text' : 'number'}
+                          inputMode={suspendDurationUnit === 'hourMinute' ? 'text' : 'decimal'}
+                          min={0}
+                          step={
+                            suspendDurationUnit === 'decimalHours'
+                              ? 0.01
+                              : suspendDurationUnit === 'minutes'
+                                ? 1
+                                : undefined
+                          }
+                          value={suspendDurationInput}
+                          onChange={(event) => handleChangeSuspendDurationValue(event.target.value)}
+                          placeholder={
+                            suspendDurationUnit === 'hourMinute'
+                              ? '0時間0分'
+                              : suspendDurationUnit === 'decimalHours'
+                                ? '0.00'
+                                : '0'
+                          }
+                        />
+                        <select
+                          value={suspendDurationUnit}
+                          onChange={(event) => handleChangeSuspendDurationUnit(event.target.value as DurationUnit)}
+                        >
+                          <option value="hourMinute">時間</option>
+                          <option value="decimalHours">時間（小数）</option>
+                          <option value="minutes">分</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="task-field task-field-half">
+                      <label>実績時間</label>
+                      <div className="task-duration-input-group">
+                        <input
+                          type={actualDurationUnit === 'hourMinute' ? 'text' : 'number'}
+                          inputMode={actualDurationUnit === 'hourMinute' ? 'text' : 'decimal'}
+                          min={0}
+                          step={
+                            actualDurationUnit === 'decimalHours'
+                              ? 0.01
+                              : actualDurationUnit === 'minutes'
+                                ? 1
+                                : undefined
+                          }
+                          value={actualDurationInput}
+                          onChange={(event) => handleChangeActualDurationValue(event.target.value)}
+                          placeholder={
+                            actualDurationUnit === 'hourMinute'
+                              ? '6時間45分'
+                              : actualDurationUnit === 'decimalHours'
+                                ? '6.75'
+                                : '405'
+                          }
+                        />
+                        <select
+                          value={actualDurationUnit}
+                          onChange={(event) => handleChangeActualDurationUnit(event.target.value as DurationUnit)}
+                        >
+                          <option value="hourMinute">時間</option>
+                          <option value="decimalHours">時間（小数）</option>
+                          <option value="minutes">分</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 

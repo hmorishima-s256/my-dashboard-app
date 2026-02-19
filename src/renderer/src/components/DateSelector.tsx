@@ -12,6 +12,8 @@ type DateSelectorProps = {
   monthInputRef: React.RefObject<HTMLInputElement | null>
   dayInputRef: React.RefObject<HTMLInputElement | null>
   onToggleEditor: () => void
+  onShiftDateBackward: () => void
+  onShiftDateForward: () => void
   onCancelEditor: () => void
   onSetToday: () => void
   onSubmitEditor: () => void
@@ -36,6 +38,8 @@ export const DateSelector = ({
   monthInputRef,
   dayInputRef,
   onToggleEditor,
+  onShiftDateBackward,
+  onShiftDateForward,
   onCancelEditor,
   onSetToday,
   onSubmitEditor,
@@ -48,9 +52,19 @@ export const DateSelector = ({
 }: DateSelectorProps): React.JSX.Element => {
   return (
     <div className="topbar-left">
-      <button className="date-picker-button" onClick={onToggleEditor} type="button" aria-label="日付選択">
-        <span className="date-picker-text">{selectedDateLabel}</span>
-      </button>
+      <div className="date-picker-wrap">
+        <button className="date-picker-button" onClick={onToggleEditor} type="button" aria-label="日付選択">
+          <span className="date-picker-text">{selectedDateLabel}</span>
+        </button>
+        <div className="date-shift-buttons" aria-label="日付を1日ずらす">
+          <button className="date-shift-button" type="button" onClick={onShiftDateBackward} aria-label="前日">
+            &#9664;
+          </button>
+          <button className="date-shift-button" type="button" onClick={onShiftDateForward} aria-label="翌日">
+            &#9654;
+          </button>
+        </div>
+      </div>
       {isDateEditorOpen ? (
         <div className="date-editor-panel">
           <div className="date-editor-row">

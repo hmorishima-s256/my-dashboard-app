@@ -65,6 +65,13 @@ const normalizeMinutes = (value: number | null | undefined): number => {
   return Math.floor(value)
 }
 
+const normalizeIsoValue = (value: string | null | undefined): string | null => {
+  if (!value) return null
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return null
+  return parsed.toISOString()
+}
+
 const normalizeActualLogs = (logs: TaskActualLog[] | undefined): TaskActualLog[] => {
   if (!Array.isArray(logs)) return []
   return logs.filter(
@@ -115,6 +122,8 @@ const sanitizeTaskCreateInput = (input: TaskCreateInput): TaskCreateInput => {
     },
     actual: {
       minutes: normalizeMinutes(input.actual?.minutes),
+      suspendMinutes: normalizeMinutes(input.actual?.suspendMinutes),
+      suspendStartedAt: normalizeIsoValue(input.actual?.suspendStartedAt),
       logs: normalizeActualLogs(input.actual?.logs)
     }
   }
@@ -147,15 +156,22 @@ const sanitizeTaskForUpdate = (task: Task, userId: string): Task => {
     },
     actual: {
       minutes: normalizeMinutes(task.actual.minutes),
-      logs: task.actual.logs.filter(
-        (log) =>
-          typeof log.start === 'string' &&
-          !!log.start &&
-          (typeof log.end === 'string' || log.end === null)
-      )
+      suspendMinutes: normalizeMinutes(task.actual.suspendMinutes),
+      suspendStartedAt: normalizeIsoValue(task.actual.suspendStartedAt),
+      logs: normalizeActualLogs(task.actual.logs)
     }
   }
 }
+
+const normalizeTaskRecord = (task: Task): Task => ({
+  ...task,
+  actual: {
+    minutes: normalizeMinutes(task.actual?.minutes),
+    suspendMinutes: normalizeMinutes(task.actual?.suspendMinutes),
+    suspendStartedAt: normalizeIsoValue(task.actual?.suspendStartedAt),
+    logs: normalizeActualLogs(task.actual?.logs)
+  }
+})
 
 const createDb = (filePath: string): Low<TaskSchema> => {
   const adapter = new JSONFile<TaskSchema>(filePath)
@@ -249,6 +265,8 @@ export const createTaskStoreService = (dependencies: TaskStoreServiceDependencie
     const db = await getDbByUserId(userId)
     await db.read()
     db.data ||= createDefaultTaskSchema()
+    // 旧データとの互換のため、読込時に実績フィールドを正規化する
+    db.data.tasks = db.data.tasks.map((task) => normalizeTaskRecord(task))
     db.data.projects = sortUnique(db.data.projects)
     db.data.categories = sortUnique(db.data.categories)
     return { userId, db }
@@ -280,6 +298,8 @@ export const createTaskStoreService = (dependencies: TaskStoreServiceDependencie
       estimated: normalizedInput.estimated,
       actual: {
         minutes: normalizeMinutes(normalizedInput.actual?.minutes),
+        suspendMinutes: normalizeMinutes(normalizedInput.actual?.suspendMinutes),
+        suspendStartedAt: normalizeIsoValue(normalizedInput.actual?.suspendStartedAt),
         logs: normalizeActualLogs(normalizedInput.actual?.logs)
       },
       createdAt: nowIso,

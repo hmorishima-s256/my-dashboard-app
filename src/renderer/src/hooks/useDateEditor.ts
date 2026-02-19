@@ -104,6 +104,18 @@ export const useDateEditor = () => {
     openEditor()
   }
 
+  // ヘッダーのシェブロン操作で日付を 1 日単位で移動する
+  const shiftSelectedDate = (days: number): string => {
+    const baseDate = new Date(`${selectedDate}T00:00:00`)
+    if (Number.isNaN(baseDate.getTime())) {
+      return selectedDate
+    }
+    baseDate.setDate(baseDate.getDate() + days)
+    const nextDate = formatInputDate(baseDate)
+    setSelectedDate(nextDate)
+    return nextDate
+  }
+
   const submitEditor = (): void => {
     const paddedYear = padNumericText(yearInput, 4)
     const paddedMonth = padNumericText(monthInput, 2)
@@ -195,6 +207,7 @@ export const useDateEditor = () => {
     monthInputRef,
     dayInputRef,
     setSelectedDate,
+    shiftSelectedDate,
     toggleEditor,
     closeEditor,
     setTodayInputs,

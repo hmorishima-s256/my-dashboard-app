@@ -19,8 +19,8 @@ describe('dateUtils', () => {
     expect(formatInputDate(date)).toBe('2026-11-09')
   })
 
-  it('yyyy-mm-dd 形式を yyyy/mm/dd（曜日） へ変換する', () => {
-    expect(formatDateFromInput('2026-02-18')).toBe('2026/02/18（水）')
+  it('yyyy-mm-dd 形式を yyyy/mm/dd(曜日) へ変換する', () => {
+    expect(formatDateFromInput('2026-02-18')).toBe('2026/02/18(水)')
   })
 
   it('更新日時フォーマットを yyyy/mm/dd HH:mm:ss で返す', () => {

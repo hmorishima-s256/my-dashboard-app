@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  calculateActualDurationMinutes,
   calculateDurationMinutes,
   calculateElapsedMinutes,
   calculateEndTime,
@@ -8,7 +9,9 @@ import {
   formatMinutesAsHourMinute,
   formatMinutesToTime,
   parseTimeToMinutes,
+  resumeTaskTracking,
   startTaskTracking,
+  suspendTaskTracking,
   stopTaskTracking
 } from '../../src/renderer/src/lib/taskTimeUtils'
 import type { Task } from '../../src/shared/contracts'
@@ -30,6 +33,8 @@ const createBaseTask = (): Task => ({
   },
   actual: {
     minutes: 0,
+    suspendMinutes: 0,
+    suspendStartedAt: null,
     logs: []
   },
   createdAt: '2026-02-18T00:00:00.000Z',
@@ -64,6 +69,11 @@ describe('taskTimeUtils', () => {
     expect(calculateDurationMinutes('aa', '10:00')).toBe(0)
   })
 
+  it('実績分は昼休憩と中断時間を除いて算出する', () => {
+    expect(calculateActualDurationMinutes('09:30', '17:15', 30)).toBe(375)
+    expect(calculateActualDurationMinutes('09:30', '17:15', 999)).toBe(0)
+  })
+
   it('ISO日時差から昼休憩を除き秒切り捨てで分を算出する', () => {
     expect(calculateElapsedMinutes('2026-02-18T09:00:00.000Z', '2026-02-18T09:10:59.000Z')).toBe(10)
     expect(calculateElapsedMinutes('2026-02-18T09:30:00', '2026-02-18T17:15:00')).toBe(405)
@@ -96,5 +106,28 @@ describe('taskTimeUtils', () => {
     expect(next.status).toBe('finished')
     expect(next.actual.minutes).toBe(15)
     expect(next.actual.logs[0].end).toBe('2026-02-18T09:15:59.000Z')
+  })
+
+  it('中断→再開で中断分を記録して実績計測を継続する', () => {
+    const task = createBaseTask()
+    const started = startTaskTracking(task, '2026-02-18T09:00:00.000Z')
+    const suspended = suspendTaskTracking(started, '2026-02-18T09:10:00.000Z')
+    expect(suspended.status).toBe('suspend')
+    expect(suspended.actual.minutes).toBe(10)
+    expect(suspended.actual.suspendStartedAt).toBe('2026-02-18T09:10:00.000Z')
+
+    const resumed = resumeTaskTracking(suspended, '2026-02-18T09:16:00.000Z')
+    expect(resumed.status).toBe('doing')
+    expect(resumed.actual.suspendMinutes).toBe(6)
+    expect(resumed.actual.suspendStartedAt).toBeNull()
+    expect(resumed.actual.logs[resumed.actual.logs.length - 1]).toEqual({
+      start: '2026-02-18T09:16:00.000Z',
+      end: null
+    })
+
+    const finished = stopTaskTracking(resumed, '2026-02-18T09:26:00.000Z', 'finished')
+    expect(finished.actual.minutes).toBe(20)
+    expect(finished.actual.suspendMinutes).toBe(6)
+    expect(finished.status).toBe('finished')
   })
 })

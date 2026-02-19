@@ -46,7 +46,12 @@ export const createDependencies = (): DependencyBundle => {
       priority: taskInput.priority,
       memo: taskInput.memo,
       estimated: taskInput.estimated,
-      actual: { minutes: taskInput.actual?.minutes ?? 0, logs: taskInput.actual?.logs ?? [] },
+      actual: {
+        minutes: taskInput.actual?.minutes ?? 0,
+        suspendMinutes: taskInput.actual?.suspendMinutes ?? 0,
+        suspendStartedAt: taskInput.actual?.suspendStartedAt ?? null,
+        logs: taskInput.actual?.logs ?? []
+      },
       createdAt: '2026-02-18T00:00:00.000Z',
       updatedAt: '2026-02-18T00:00:00.000Z'
     })),

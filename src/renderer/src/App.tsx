@@ -77,6 +77,11 @@ function App(): React.JSX.Element {
     await calendarRows.fetchSchedule(auth.currentUser, targetDate)
   }
 
+  // シェブロン操作で日付を移動した際は selectedDate が更新され、同期が自動実行される
+  const handleShiftDate = (days: number): void => {
+    dateEditor.shiftSelectedDate(days)
+  }
+
   useEffect(() => {
     // Esc キーで日付入力/設定モーダルを閉じる
     const handleEscKeyDown = (event: KeyboardEvent): void => {
@@ -117,6 +122,8 @@ function App(): React.JSX.Element {
           monthInputRef={dateEditor.monthInputRef}
           dayInputRef={dateEditor.dayInputRef}
           onToggleEditor={dateEditor.toggleEditor}
+          onShiftDateBackward={() => handleShiftDate(-1)}
+          onShiftDateForward={() => handleShiftDate(1)}
           onCancelEditor={dateEditor.closeEditor}
           onSetToday={dateEditor.setTodayInputs}
           onSubmitEditor={dateEditor.submitEditor}

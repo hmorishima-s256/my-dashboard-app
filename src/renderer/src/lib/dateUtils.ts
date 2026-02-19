@@ -21,7 +21,7 @@ export const formatDateFromInput = (inputDate: string): string => {
     candidate.getMonth() === month - 1 &&
     candidate.getDate() === day
   if (!isValidDate) return `${match[1]}/${match[2]}/${match[3]}`
-  return `${match[1]}/${match[2]}/${match[3]}（${WEEKDAY_JP[candidate.getDay()]}）`
+  return `${match[1]}/${match[2]}/${match[3]}(${WEEKDAY_JP[candidate.getDay()]})`
 }
 
 export const formatDateTime = (date: Date): string =>

@@ -164,6 +164,17 @@ export const calculateDurationMinutes = (start: string | null, end: string | nul
   return Math.max(0, rawMinutes - lunchOverlap)
 }
 
+// 実績は「開始/終了の差分 - 昼休憩 - 中断時間」で算出する
+export const calculateActualDurationMinutes = (
+  start: string | null,
+  end: string | null,
+  suspendMinutes: number
+): number => {
+  const baseMinutes = calculateDurationMinutes(start, end)
+  const normalizedSuspendMinutes = Math.max(0, Math.floor(suspendMinutes))
+  return Math.max(0, baseMinutes - normalizedSuspendMinutes)
+}
+
 export const calculateElapsedMinutes = (startIso: string, endIso: string): number => {
   const startDate = new Date(startIso)
   const endDate = new Date(endIso)
@@ -179,9 +190,21 @@ export const calculateElapsedMinutes = (startIso: string, endIso: string): numbe
 }
 
 export const startTaskTracking = (task: Task, nowIso: string): Task => {
+  const baseSuspendMinutes = Math.max(0, Math.floor(task.actual.suspendMinutes ?? 0))
+  const resumedSuspendMinutes = task.actual.suspendStartedAt
+    ? baseSuspendMinutes + calculateElapsedMinutes(task.actual.suspendStartedAt, nowIso)
+    : baseSuspendMinutes
   const hasOpenLog = task.actual.logs.some((log) => log.end === null)
   if (hasOpenLog) {
-    return { ...task, status: 'doing' }
+    return {
+      ...task,
+      status: 'doing',
+      actual: {
+        ...task.actual,
+        suspendMinutes: resumedSuspendMinutes,
+        suspendStartedAt: null
+      }
+    }
   }
 
   return {
@@ -189,12 +212,16 @@ export const startTaskTracking = (task: Task, nowIso: string): Task => {
     status: 'doing',
     actual: {
       ...task.actual,
+      suspendMinutes: resumedSuspendMinutes,
+      suspendStartedAt: null,
       logs: [...task.actual.logs, { start: nowIso, end: null }]
     }
   }
 }
 
-export const stopTaskTracking = (task: Task, nowIso: string, nextStatus: TaskStatus): Task => {
+// 中断時は open log を閉じた上で、中断開始時刻を保持する
+export const suspendTaskTracking = (task: Task, nowIso: string): Task => {
+  const baseSuspendMinutes = Math.max(0, Math.floor(task.actual.suspendMinutes ?? 0))
   let addedMinutes = 0
   let updatedLogs = task.actual.logs
 
@@ -216,9 +243,54 @@ export const stopTaskTracking = (task: Task, nowIso: string, nextStatus: TaskSta
 
   return {
     ...task,
+    status: 'suspend',
+    actual: {
+      ...task.actual,
+      minutes: task.actual.minutes + addedMinutes,
+      suspendMinutes: baseSuspendMinutes,
+      suspendStartedAt: task.actual.suspendStartedAt ?? nowIso,
+      logs: updatedLogs
+    }
+  }
+}
+
+// 再開時は中断時間を加算確定してから実績計測を再開する
+export const resumeTaskTracking = (task: Task, nowIso: string): Task => {
+  return startTaskTracking(task, nowIso)
+}
+
+export const stopTaskTracking = (task: Task, nowIso: string, nextStatus: TaskStatus): Task => {
+  const baseSuspendMinutes = Math.max(0, Math.floor(task.actual.suspendMinutes ?? 0))
+  let addedMinutes = 0
+  let updatedLogs = task.actual.logs
+
+  let latestOpenLogIndex = -1
+  for (let index = task.actual.logs.length - 1; index >= 0; index -= 1) {
+    if (task.actual.logs[index].end === null) {
+      latestOpenLogIndex = index
+      break
+    }
+  }
+
+  if (latestOpenLogIndex >= 0) {
+    const latestOpenLog = task.actual.logs[latestOpenLogIndex]
+    addedMinutes = calculateElapsedMinutes(latestOpenLog.start, nowIso)
+    updatedLogs = task.actual.logs.map((log, index) =>
+      index === latestOpenLogIndex ? { ...log, end: nowIso } : log
+    )
+  }
+
+  const addedSuspendMinutes = task.actual.suspendStartedAt
+    ? calculateElapsedMinutes(task.actual.suspendStartedAt, nowIso)
+    : 0
+
+  return {
+    ...task,
     status: nextStatus,
     actual: {
       minutes: task.actual.minutes + addedMinutes,
+      suspendMinutes: baseSuspendMinutes + addedSuspendMinutes,
+      suspendStartedAt: null,
       logs: updatedLogs
     }
   }
