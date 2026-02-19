@@ -12,7 +12,9 @@ const createTempRoot = async (): Promise<string> => {
   return root
 }
 
-const loadTaskStoreModule = async (rootPath: string) => {
+const loadTaskStoreModule = async (
+  rootPath: string
+): Promise<typeof import('../../src/main/services/taskStore')> => {
   vi.resetModules()
   vi.doMock('../../src/main/googleAuth', () => ({
     getUserSettingsDir: (email: string) => path.join(rootPath, encodeURIComponent(email))

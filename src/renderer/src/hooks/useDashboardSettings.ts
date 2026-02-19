@@ -1,25 +1,45 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { buildIntervalMinutes, parseIntervalForInput } from '../lib/settingsUtils'
 import type { AppSettings, IntervalUnit, TaskTimeDisplayMode, UserProfile } from '../types/ui'
 
+type UseDashboardSettingsResult = {
+  isSettingsOpen: boolean
+  autoFetchTime: string
+  isSavingSettings: boolean
+  autoFetchIntervalValue: string
+  autoFetchIntervalUnit: IntervalUnit
+  taskTimeDisplayModeDraft: TaskTimeDisplayMode
+  taskTimeDisplayMode: TaskTimeDisplayMode
+  setAutoFetchTime: React.Dispatch<React.SetStateAction<string>>
+  setAutoFetchIntervalValue: React.Dispatch<React.SetStateAction<string>>
+  setAutoFetchIntervalUnit: React.Dispatch<React.SetStateAction<IntervalUnit>>
+  setTaskTimeDisplayModeDraft: React.Dispatch<React.SetStateAction<TaskTimeDisplayMode>>
+  applyLoadedSettings: (loadedSettings: AppSettings) => void
+  openSettingsModal: () => void
+  closeSettingsModal: () => void
+  saveSettings: (currentUser: UserProfile | null) => Promise<void>
+  clearSettings: (currentUser: UserProfile | null) => Promise<void>
+}
+
 // 設定モーダルの状態と保存処理を担当するフック
-export const useDashboardSettings = () => {
+export const useDashboardSettings = (): UseDashboardSettingsResult => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [autoFetchTime, setAutoFetchTime] = useState('')
   const [isSavingSettings, setIsSavingSettings] = useState(false)
   const [autoFetchIntervalValue, setAutoFetchIntervalValue] = useState('')
   const [autoFetchIntervalUnit, setAutoFetchIntervalUnit] = useState<IntervalUnit>('minutes')
-  const [taskTimeDisplayModeDraft, setTaskTimeDisplayModeDraft] = useState<TaskTimeDisplayMode>('hourMinute')
+  const [taskTimeDisplayModeDraft, setTaskTimeDisplayModeDraft] =
+    useState<TaskTimeDisplayMode>('hourMinute')
   const [taskTimeDisplayMode, setTaskTimeDisplayMode] = useState<TaskTimeDisplayMode>('hourMinute')
 
-  const applyLoadedSettings = (loadedSettings: AppSettings): void => {
+  const applyLoadedSettings = useCallback((loadedSettings: AppSettings): void => {
     setAutoFetchTime(loadedSettings.autoFetchTime ?? '')
     const parsedInterval = parseIntervalForInput(loadedSettings.autoFetchIntervalMinutes)
     setAutoFetchIntervalValue(parsedInterval.value)
     setAutoFetchIntervalUnit(parsedInterval.unit)
     setTaskTimeDisplayModeDraft(loadedSettings.taskTimeDisplayMode)
     setTaskTimeDisplayMode(loadedSettings.taskTimeDisplayMode)
-  }
+  }, [])
 
   const openSettingsModal = (): void => {
     // 保存済み値をドラフトへ写して編集開始する
@@ -37,7 +57,10 @@ export const useDashboardSettings = () => {
     try {
       const savedSettings = await window.api.saveSettings({
         autoFetchTime: autoFetchTime || null,
-        autoFetchIntervalMinutes: buildIntervalMinutes(autoFetchIntervalValue, autoFetchIntervalUnit),
+        autoFetchIntervalMinutes: buildIntervalMinutes(
+          autoFetchIntervalValue,
+          autoFetchIntervalUnit
+        ),
         taskTimeDisplayMode: taskTimeDisplayModeDraft
       })
       applyLoadedSettings(savedSettings)

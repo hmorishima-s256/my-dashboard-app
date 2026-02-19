@@ -19,7 +19,10 @@ const flushMicroTasks = async (): Promise<void> => {
   await Promise.resolve()
 }
 
-const createContext = (settings: AppSettings, currentUser: UserProfile | null): SchedulerContext => {
+const createContext = (
+  settings: AppSettings,
+  currentUser: UserProfile | null
+): SchedulerContext => {
   let lastAutoFetchDateKey: string | null = null
   let lastIntervalFetchAtMs: number | null = null
   const fetchByDate = vi.fn(async () => {})
@@ -58,7 +61,10 @@ describe('autoFetchScheduler', () => {
 
   it('未ログイン時は自動取得しない', async () => {
     vi.setSystemTime(new Date(2026, 1, 18, 9, 30, 0))
-    const context = createContext({ autoFetchTime: '09:30', autoFetchIntervalMinutes: 10, taskTimeDisplayMode: 'hourMinute' }, null)
+    const context = createContext(
+      { autoFetchTime: '09:30', autoFetchIntervalMinutes: 10, taskTimeDisplayMode: 'hourMinute' },
+      null
+    )
 
     context.scheduler.start()
     await flushMicroTasks()
@@ -69,7 +75,10 @@ describe('autoFetchScheduler', () => {
 
   it('指定時刻に1日1回だけ自動取得する', async () => {
     vi.setSystemTime(new Date(2026, 1, 18, 9, 30, 0))
-    const context = createContext({ autoFetchTime: '09:30', autoFetchIntervalMinutes: null, taskTimeDisplayMode: 'hourMinute' }, user)
+    const context = createContext(
+      { autoFetchTime: '09:30', autoFetchIntervalMinutes: null, taskTimeDisplayMode: 'hourMinute' },
+      user
+    )
 
     context.scheduler.start()
     await flushMicroTasks()
@@ -87,7 +96,10 @@ describe('autoFetchScheduler', () => {
 
   it('指定間隔経過で自動取得する', async () => {
     vi.setSystemTime(new Date(2026, 1, 18, 9, 0, 0))
-    const context = createContext({ autoFetchTime: null, autoFetchIntervalMinutes: 10, taskTimeDisplayMode: 'hourMinute' }, user)
+    const context = createContext(
+      { autoFetchTime: null, autoFetchIntervalMinutes: 10, taskTimeDisplayMode: 'hourMinute' },
+      user
+    )
 
     context.scheduler.start()
     await flushMicroTasks()
@@ -107,7 +119,10 @@ describe('autoFetchScheduler', () => {
 
   it('実行状態リセットで日次・間隔の状態を初期化する', () => {
     vi.setSystemTime(new Date(2026, 1, 18, 9, 0, 0))
-    const context = createContext({ autoFetchTime: '09:00', autoFetchIntervalMinutes: 5, taskTimeDisplayMode: 'hourMinute' }, user)
+    const context = createContext(
+      { autoFetchTime: '09:00', autoFetchIntervalMinutes: 5, taskTimeDisplayMode: 'hourMinute' },
+      user
+    )
 
     context.scheduler.resetRunState()
 

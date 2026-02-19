@@ -5,6 +5,7 @@ out
 .eslintcache
 *.log*
 .vscode
+.codex
 
 # Google API Credentials
 credentials.json

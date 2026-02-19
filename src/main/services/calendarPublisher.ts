@@ -1,14 +1,28 @@
 import type { BrowserWindow } from 'electron'
 import type { CalendarTableRow, CalendarUpdatePayload, UserProfile } from '../../shared/contracts'
 
+type CalendarPublisherWindow = Pick<BrowserWindow, 'isDestroyed'> & {
+  webContents: Pick<BrowserWindow['webContents'], 'send'>
+}
+
 type CalendarPublisherDependencies = {
   getCurrentUser: () => UserProfile | null
-  getMainWindow: () => BrowserWindow | null
+  getMainWindow: () => CalendarPublisherWindow | null
   getEventsByDate: (targetDate: string) => Promise<CalendarTableRow[]>
 }
 
+type CalendarPublisherService = {
+  fetchAndPublishByDate: (
+    targetDate: string,
+    source: 'manual' | 'auto'
+  ) => Promise<CalendarTableRow[]>
+  publishEmptyManualUpdate: () => void
+}
+
 // 予定取得と Renderer への通知配信を担当するサービス
-export const createCalendarPublisher = (dependencies: CalendarPublisherDependencies) => {
+export const createCalendarPublisher = (
+  dependencies: CalendarPublisherDependencies
+): CalendarPublisherService => {
   const fetchAndPublishByDate = async (
     targetDate: string,
     source: 'manual' | 'auto'

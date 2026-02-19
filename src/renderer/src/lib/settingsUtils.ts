@@ -1,7 +1,9 @@
 import type { IntervalUnit } from '../types/ui'
 
 // 保存値（分）を入力フォーム向けの値+単位へ変換する
-export const parseIntervalForInput = (minutes: number | null): { value: string; unit: IntervalUnit } => {
+export const parseIntervalForInput = (
+  minutes: number | null
+): { value: string; unit: IntervalUnit } => {
   if (!minutes) {
     return { value: '', unit: 'minutes' }
   }

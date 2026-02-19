@@ -100,11 +100,13 @@ const DEFAULT_PROFILE_ICON_SVG = `<?xml version="1.0" encoding="UTF-8"?>
 const buildUserKey = (email: string): string => encodeURIComponent(email.trim().toLowerCase())
 
 // 設定保存で使うユーザーごとのディレクトリを返す
-export const getUserSettingsDir = (email: string): string => path.join(APP_LOCAL_ROOT_PATH, buildUserKey(email))
+export const getUserSettingsDir = (email: string): string =>
+  path.join(APP_LOCAL_ROOT_PATH, buildUserKey(email))
 
 // ユーザーごとの token/profile ファイルパス
 const getTokenPath = (email: string): string => path.join(getUserSettingsDir(email), 'token.json')
-const getUserProfilePath = (email: string): string => path.join(getUserSettingsDir(email), 'user-profile.json')
+const getUserProfilePath = (email: string): string =>
+  path.join(getUserSettingsDir(email), 'user-profile.json')
 
 // 待機処理（リトライ時のバックオフ）
 const sleep = async (milliseconds: number): Promise<void> => {
@@ -250,6 +252,16 @@ const saveCurrentUserPointer = async (email: string): Promise<void> => {
   await fs.writeFile(CURRENT_USER_FILE_PATH, JSON.stringify({ email }, null, 2), 'utf-8')
 }
 
+// 保存済みの authorized_user 情報から OAuth2 クライアントを復元する
+const restoreAuthClient = (credentials: AuthorizedUserToken): AuthClient => {
+  const authClient = new OAuth2Client({
+    clientId: credentials.client_id,
+    clientSecret: credentials.client_secret
+  })
+  authClient.setCredentials({ refresh_token: credentials.refresh_token })
+  return authClient
+}
+
 // 保存済みトークンを読み込む
 async function loadSavedCredentialsIfExist(): Promise<AuthClient | null> {
   const pointer = await loadCurrentUserPointer()
@@ -281,7 +293,7 @@ async function loadSavedCredentialsIfExist(): Promise<AuthClient | null> {
       credentials = parsedToken as AuthorizedUserToken
     }
 
-    return google.auth.fromJSON(credentials) as unknown as AuthClient
+    return restoreAuthClient(credentials)
   } catch {
     return null
   }

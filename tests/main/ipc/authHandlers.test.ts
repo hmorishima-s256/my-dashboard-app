@@ -1,12 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createDependencies, currentUserProfile } from './handlerTestUtils'
 
+type RegisteredHandler = (...args: unknown[]) => Promise<unknown>
+
 const ipcHandlerState = vi.hoisted(() => ({
-  handlers: new Map<string, (...args: any[]) => Promise<any>>()
+  handlers: new Map<string, RegisteredHandler>()
 }))
 
 const ipcHandleMock = vi.hoisted(() =>
-  vi.fn((channel: string, handler: (...args: any[]) => Promise<any>) => {
+  vi.fn((channel: string, handler: RegisteredHandler) => {
     ipcHandlerState.handlers.set(channel, handler)
   })
 )
@@ -19,7 +21,7 @@ vi.mock('electron', () => ({
 
 import { registerAuthHandlers } from '../../../src/main/ipc/handlers/authHandlers'
 
-const getRegisteredHandler = (channel: string): ((...args: any[]) => Promise<any>) => {
+const getRegisteredHandler = (channel: string): RegisteredHandler => {
   const handler = ipcHandlerState.handlers.get(channel)
   if (!handler) throw new Error(`Handler not found: ${channel}`)
   return handler

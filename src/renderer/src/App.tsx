@@ -23,20 +23,34 @@ function App(): React.JSX.Element {
   const auth = useAuthController()
   const settings = useDashboardSettings()
   const calendarRows = useCalendarRows({ selectedDateRef })
+  const selectedDate = dateEditor.selectedDate
+  const isDateEditorOpen = dateEditor.isDateEditorOpen
+  const closeDateEditor = dateEditor.closeEditor
+  const currentUser = auth.currentUser
+  const setCurrentUser = auth.setCurrentUser
+  const loadCurrentUser = auth.loadCurrentUser
+  const applyLoadedSettings = settings.applyLoadedSettings
+  const isSettingsOpen = settings.isSettingsOpen
+  const closeSettingsModal = settings.closeSettingsModal
+  const fetchSchedule = calendarRows.fetchSchedule
+  const clearRows = calendarRows.clearRows
 
   useEffect(() => {
-    selectedDateRef.current = dateEditor.selectedDate
-  }, [dateEditor.selectedDate])
+    selectedDateRef.current = selectedDate
+  }, [selectedDate])
 
   useEffect(() => {
     let isMounted = true
     // 起動時に認証情報と設定をロードする
     const loadInitialState = async (): Promise<void> => {
       try {
-        const [user, loadedSettings] = await Promise.all([auth.loadCurrentUser(), window.api.getSettings()])
+        const [user, loadedSettings] = await Promise.all([
+          loadCurrentUser(),
+          window.api.getSettings()
+        ])
         if (!isMounted) return
-        auth.setCurrentUser(user)
-        settings.applyLoadedSettings(loadedSettings)
+        setCurrentUser(user)
+        applyLoadedSettings(loadedSettings)
       } catch (error) {
         console.error('Failed to load initial state:', error)
       }
@@ -46,16 +60,16 @@ function App(): React.JSX.Element {
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [applyLoadedSettings, loadCurrentUser, setCurrentUser])
 
   useEffect(() => {
-    if (!auth.currentUser) return
-    void calendarRows.fetchSchedule(auth.currentUser, dateEditor.selectedDate)
-  }, [auth.currentUser, dateEditor.selectedDate, calendarRows.fetchSchedule])
+    if (!currentUser) return
+    void fetchSchedule(currentUser, selectedDate)
+  }, [currentUser, fetchSchedule, selectedDate])
 
   const reloadSettings = async (): Promise<void> => {
     const loadedSettings = await window.api.getSettings()
-    settings.applyLoadedSettings(loadedSettings)
+    applyLoadedSettings(loadedSettings)
   }
 
   const handleLogin = async (): Promise<void> => {
@@ -68,13 +82,13 @@ function App(): React.JSX.Element {
   const handleConfirmLogout = async (): Promise<void> => {
     await auth.logout(async () => {
       // ログアウト後は表示データを初期化し、ゲスト設定へ戻す
-      calendarRows.clearRows()
+      clearRows()
       await reloadSettings()
     })
   }
 
-  const handleGetSchedule = async (targetDate = dateEditor.selectedDate): Promise<void> => {
-    await calendarRows.fetchSchedule(auth.currentUser, targetDate)
+  const handleGetSchedule = async (targetDate = selectedDate): Promise<void> => {
+    await fetchSchedule(currentUser, targetDate)
   }
 
   // シェブロン操作で日付を移動した際は selectedDate が更新され、同期が自動実行される
@@ -86,26 +100,21 @@ function App(): React.JSX.Element {
     // Esc キーで日付入力/設定モーダルを閉じる
     const handleEscKeyDown = (event: KeyboardEvent): void => {
       if (event.key !== 'Escape') return
-      if (dateEditor.isDateEditorOpen) {
+      if (isDateEditorOpen) {
         event.preventDefault()
-        dateEditor.closeEditor()
+        closeDateEditor()
         return
       }
-      if (settings.isSettingsOpen) {
+      if (isSettingsOpen) {
         event.preventDefault()
-        settings.closeSettingsModal()
+        closeSettingsModal()
       }
     }
     window.addEventListener('keydown', handleEscKeyDown)
     return () => {
       window.removeEventListener('keydown', handleEscKeyDown)
     }
-  }, [
-    dateEditor.isDateEditorOpen,
-    dateEditor.closeEditor,
-    settings.isSettingsOpen,
-    settings.closeSettingsModal
-  ])
+  }, [closeDateEditor, closeSettingsModal, isDateEditorOpen, isSettingsOpen])
 
   return (
     <div className="container">
@@ -173,7 +182,9 @@ function App(): React.JSX.Element {
         <button className="settings-button" onClick={settings.openSettingsModal} aria-label="設定">
           ⚙
         </button>
-        <div className="updated-at">更新日時: {calendarRows.lastUpdatedAt ? formatDateTime(calendarRows.lastUpdatedAt) : '-'}</div>
+        <div className="updated-at">
+          更新日時: {calendarRows.lastUpdatedAt ? formatDateTime(calendarRows.lastUpdatedAt) : '-'}
+        </div>
       </footer>
 
       <SettingsModal

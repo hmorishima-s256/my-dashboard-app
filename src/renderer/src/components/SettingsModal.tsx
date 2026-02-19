@@ -88,13 +88,19 @@ export const SettingsModal = ({
           id="task-time-display-mode"
           className="settings-time-input"
           value={taskTimeDisplayMode}
-          onChange={(event) => onChangeTaskTimeDisplayMode(event.target.value as TaskTimeDisplayMode)}
+          onChange={(event) =>
+            onChangeTaskTimeDisplayMode(event.target.value as TaskTimeDisplayMode)
+          }
         >
           <option value="hourMinute">6時間45分</option>
           <option value="decimal">6.75時間</option>
         </select>
         <div className="settings-actions">
-          <button className="settings-action-button secondary" onClick={onClose} disabled={isSavingSettings}>
+          <button
+            className="settings-action-button secondary"
+            onClick={onClose}
+            disabled={isSavingSettings}
+          >
             閉じる
           </button>
           <button

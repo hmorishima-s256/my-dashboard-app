@@ -7,8 +7,17 @@ type UseCalendarRowsOptions = {
   selectedDateRef: RefObject<string>
 }
 
+type UseCalendarRowsResult = {
+  rows: CalendarTableRow[]
+  lastUpdatedAt: Date | null
+  fetchSchedule: (currentUser: UserProfile | null, targetDate: string) => Promise<void>
+  clearRows: () => void
+}
+
 // 予定一覧の表示状態と同期処理を担当するフック
-export const useCalendarRows = ({ selectedDateRef }: UseCalendarRowsOptions) => {
+export const useCalendarRows = ({
+  selectedDateRef
+}: UseCalendarRowsOptions): UseCalendarRowsResult => {
   const [rows, setRows] = useState<CalendarTableRow[]>([])
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
 
@@ -28,12 +37,15 @@ export const useCalendarRows = ({ selectedDateRef }: UseCalendarRowsOptions) => 
     }
   }, [selectedDateRef])
 
-  const fetchSchedule = useCallback(async (currentUser: UserProfile | null, targetDate: string): Promise<void> => {
-    if (!currentUser) return
-    const events = await window.api.getCalendar(targetDate)
-    setRows(events)
-    setLastUpdatedAt(new Date())
-  }, [])
+  const fetchSchedule = useCallback(
+    async (currentUser: UserProfile | null, targetDate: string): Promise<void> => {
+      if (!currentUser) return
+      const events = await window.api.getCalendar(targetDate)
+      setRows(events)
+      setLastUpdatedAt(new Date())
+    },
+    []
+  )
 
   const clearRows = (): void => {
     setRows([])

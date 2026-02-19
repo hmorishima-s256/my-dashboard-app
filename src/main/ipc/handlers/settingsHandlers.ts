@@ -13,5 +13,8 @@ export const registerSettingsHandlers = (dependencies: MainIpcHandlerDependencie
     return saved
   })
 
-  ipcMain.handle('get-default-profile-icon-url', async () => await dependencies.getDefaultProfileIconUrl())
+  ipcMain.handle(
+    'get-default-profile-icon-url',
+    async () => await dependencies.getDefaultProfileIconUrl()
+  )
 }

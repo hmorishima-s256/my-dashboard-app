@@ -53,14 +53,29 @@ export const DateSelector = ({
   return (
     <div className="topbar-left">
       <div className="date-picker-wrap">
-        <button className="date-picker-button" onClick={onToggleEditor} type="button" aria-label="日付選択">
+        <button
+          className="date-picker-button"
+          onClick={onToggleEditor}
+          type="button"
+          aria-label="日付選択"
+        >
           <span className="date-picker-text">{selectedDateLabel}</span>
         </button>
         <div className="date-shift-buttons" aria-label="日付を1日ずらす">
-          <button className="date-shift-button" type="button" onClick={onShiftDateBackward} aria-label="前日">
+          <button
+            className="date-shift-button"
+            type="button"
+            onClick={onShiftDateBackward}
+            aria-label="前日"
+          >
             &#9664;
           </button>
-          <button className="date-shift-button" type="button" onClick={onShiftDateForward} aria-label="翌日">
+          <button
+            className="date-shift-button"
+            type="button"
+            onClick={onShiftDateForward}
+            aria-label="翌日"
+          >
             &#9654;
           </button>
         </div>

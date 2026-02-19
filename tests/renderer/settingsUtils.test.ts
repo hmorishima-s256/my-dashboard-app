@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { buildIntervalMinutes, parseIntervalForInput } from '../../src/renderer/src/lib/settingsUtils'
+import {
+  buildIntervalMinutes,
+  parseIntervalForInput
+} from '../../src/renderer/src/lib/settingsUtils'
 
 describe('settingsUtils', () => {
   it('保存値（分）を入力表示用の値と単位に変換する', () => {

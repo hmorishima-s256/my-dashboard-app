@@ -19,15 +19,18 @@ const api = {
   getCalendar: (targetDate?: string) => ipcRenderer.invoke('get-calendar', targetDate),
   getSettings: () => ipcRenderer.invoke('get-settings'),
   saveSettings: (settings: AppSettings) => ipcRenderer.invoke('save-settings', settings),
-  getDefaultProfileIconUrl: () => ipcRenderer.invoke('get-default-profile-icon-url') as Promise<string>,
+  getDefaultProfileIconUrl: () =>
+    ipcRenderer.invoke('get-default-profile-icon-url') as Promise<string>,
   taskGetAll: (userId: string, targetDate: string) =>
     ipcRenderer.invoke('task:get-all', userId, targetDate) as Promise<TaskListResponse>,
-  taskAdd: (taskInput: TaskCreateInput) => ipcRenderer.invoke('task:add', taskInput) as Promise<Task>,
+  taskAdd: (taskInput: TaskCreateInput) =>
+    ipcRenderer.invoke('task:add', taskInput) as Promise<Task>,
   taskUpdate: (task: Task) => ipcRenderer.invoke('task:update', task) as Promise<Task | null>,
   taskDelete: (taskId: string) => ipcRenderer.invoke('task:delete', taskId) as Promise<boolean>,
   authLogin: () => ipcRenderer.invoke('auth:login') as Promise<AuthLoginResult>,
   authLogout: () => ipcRenderer.invoke('auth:logout') as Promise<AuthLogoutResult>,
-  authGetCurrentUser: () => ipcRenderer.invoke('auth:get-current-user') as Promise<UserProfile | null>,
+  authGetCurrentUser: () =>
+    ipcRenderer.invoke('auth:get-current-user') as Promise<UserProfile | null>,
   onCalendarUpdated: (callback: (payload: CalendarUpdatePayload) => void) => {
     const listener = (_event: Electron.IpcRendererEvent, payload: CalendarUpdatePayload): void => {
       callback(payload)
@@ -49,8 +52,10 @@ if (process.contextIsolated) {
     console.error(error)
   }
 } else {
-  // @ts-ignore（型定義は index.d.ts 側で宣言）
-  window.electron = electronAPI
-  // @ts-ignore（型定義は index.d.ts 側で宣言）
-  window.api = api
+  const globalWindow = window as typeof window & {
+    electron: typeof electronAPI
+    api: typeof api
+  }
+  globalWindow.electron = electronAPI
+  globalWindow.api = api
 }

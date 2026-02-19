@@ -36,7 +36,9 @@ const normalizeAutoFetchIntervalMinutes = (value: number | null | undefined): nu
 }
 
 // タスク時間の表示形式を正規化する（不正値は既定値へ）
-const normalizeTaskTimeDisplayMode = (value: string | null | undefined): AppSettings['taskTimeDisplayMode'] => {
+const normalizeTaskTimeDisplayMode = (
+  value: string | null | undefined
+): AppSettings['taskTimeDisplayMode'] => {
   if (value === 'hourMinute' || value === 'decimal') return value
   return DEFAULT_SETTINGS.taskTimeDisplayMode
 }

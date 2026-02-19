@@ -23,6 +23,14 @@ type TaskStoreServiceDependencies = {
   getNow?: () => Date
 }
 
+type TaskStoreService = {
+  getAll: (date: string) => Promise<TaskListResponse>
+  add: (input: TaskCreateInput) => Promise<Task>
+  update: (task: Task) => Promise<Task | null>
+  remove: (taskId: string) => Promise<boolean>
+  clearGuestData: () => Promise<void>
+}
+
 const TASK_FILE_NAME = 'tasks.json'
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/
@@ -79,7 +87,8 @@ const normalizeActualLogs = (logs: TaskActualLog[] | undefined): TaskActualLog[]
       typeof log.start === 'string' &&
       !!log.start &&
       !Number.isNaN(new Date(log.start).getTime()) &&
-      (log.end === null || (typeof log.end === 'string' && !Number.isNaN(new Date(log.end).getTime())))
+      (log.end === null ||
+        (typeof log.end === 'string' && !Number.isNaN(new Date(log.end).getTime())))
   )
 }
 
@@ -89,7 +98,8 @@ const normalizeStatus = (value: TaskStatus | undefined): TaskStatus =>
 const normalizePriority = (value: TaskPriority): TaskPriority =>
   TASK_PRIORITY_SET.has(value) ? value : '中'
 
-const sortUnique = (items: string[]): string[] => Array.from(new Set(items)).sort((a, b) => a.localeCompare(b, 'ja'))
+const sortUnique = (items: string[]): string[] =>
+  Array.from(new Set(items)).sort((a, b) => a.localeCompare(b, 'ja'))
 
 const upsertMaster = (list: string[], value: string): string[] => {
   const normalized = normalizeText(value)
@@ -178,7 +188,9 @@ const createDb = (filePath: string): Low<TaskSchema> => {
   return new Low<TaskSchema>(adapter, createDefaultTaskSchema())
 }
 
-const buildProjectScopedMasters = (tasks: Task[]): {
+const buildProjectScopedMasters = (
+  tasks: Task[]
+): {
   projectCategories: Record<string, string[]>
   projectTitles: Record<string, string[]>
 } => {
@@ -226,7 +238,9 @@ const buildTaskListResponse = (schema: TaskSchema, date: string): TaskListRespon
 }
 
 // lowdb を利用したタスク保存サービス（ログインユーザーは永続、ゲストはセッション限定）
-export const createTaskStoreService = (dependencies: TaskStoreServiceDependencies) => {
+export const createTaskStoreService = (
+  dependencies: TaskStoreServiceDependencies
+): TaskStoreService => {
   const getNow = dependencies.getNow ?? (() => new Date())
   const createId = dependencies.createId ?? (() => crypto.randomUUID())
   const userDbMap = new Map<string, Low<TaskSchema>>()
@@ -261,7 +275,9 @@ export const createTaskStoreService = (dependencies: TaskStoreServiceDependencie
     return db
   }
 
-  const getLoadedSchema = async (userId: string): Promise<{ userId: string; db: Low<TaskSchema> }> => {
+  const getLoadedSchema = async (
+    userId: string
+  ): Promise<{ userId: string; db: Low<TaskSchema> }> => {
     const db = await getDbByUserId(userId)
     await db.read()
     db.data ||= createDefaultTaskSchema()
@@ -316,7 +332,9 @@ export const createTaskStoreService = (dependencies: TaskStoreServiceDependencie
   const update = async (task: Task): Promise<Task | null> => {
     const userId = resolveUserId()
     const { db } = await getLoadedSchema(userId)
-    const existingIndex = db.data.tasks.findIndex((item) => item.id === task.id && item.userId === userId)
+    const existingIndex = db.data.tasks.findIndex(
+      (item) => item.id === task.id && item.userId === userId
+    )
     if (existingIndex < 0) {
       return null
     }

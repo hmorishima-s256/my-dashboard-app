@@ -5,12 +5,7 @@ const DAY_MINUTES = 24 * 60
 const LUNCH_BREAK_START_MINUTES = 12 * 60
 const LUNCH_BREAK_END_MINUTES = 13 * 60
 
-const overlapMinutes = (
-  startA: number,
-  endA: number,
-  startB: number,
-  endB: number
-): number => {
+const overlapMinutes = (startA: number, endA: number, startB: number, endB: number): number => {
   const start = Math.max(startA, startB)
   const end = Math.min(endA, endB)
   return Math.max(0, end - start)
@@ -56,15 +51,7 @@ const calculateLunchBreakOverlapMs = (startDate: Date, endDate: Date): number =>
     0,
     0
   )
-  const lastDay = new Date(
-    endDate.getFullYear(),
-    endDate.getMonth(),
-    endDate.getDate(),
-    0,
-    0,
-    0,
-    0
-  )
+  const lastDay = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate(), 0, 0, 0, 0)
 
   while (dayCursor <= lastDay) {
     const breakStart = new Date(

@@ -27,7 +27,11 @@ let tray: Tray | null = null
 let isQuitting = false
 let shouldStartHidden = process.argv.includes(START_HIDDEN_ARG)
 let currentUser: UserProfile | null = null
-let settings: AppSettings = { autoFetchTime: null, autoFetchIntervalMinutes: null, taskTimeDisplayMode: 'hourMinute' }
+let settings: AppSettings = {
+  autoFetchTime: null,
+  autoFetchIntervalMinutes: null,
+  taskTimeDisplayMode: 'hourMinute'
+}
 let lastAutoFetchDateKey: string | null = null
 let lastIntervalFetchAtMs: number | null = null
 

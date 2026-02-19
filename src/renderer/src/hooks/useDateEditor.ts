@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { formatDateFromInput, formatInputDate, normalizeNumericText, padNumericText } from '../lib/dateUtils'
+import {
+  formatDateFromInput,
+  formatInputDate,
+  normalizeNumericText,
+  padNumericText
+} from '../lib/dateUtils'
 import type { DateFieldErrors } from '../types/ui'
 
 type ValidationResult = {
@@ -8,9 +13,39 @@ type ValidationResult = {
   fieldErrors: DateFieldErrors
 }
 
+type UseDateEditorResult = {
+  selectedDate: string
+  selectedDateLabel: string
+  isDateEditorOpen: boolean
+  dateEditorError: string
+  dateFieldErrors: DateFieldErrors
+  yearInput: string
+  monthInput: string
+  dayInput: string
+  yearInputRef: React.RefObject<HTMLInputElement | null>
+  monthInputRef: React.RefObject<HTMLInputElement | null>
+  dayInputRef: React.RefObject<HTMLInputElement | null>
+  setSelectedDate: React.Dispatch<React.SetStateAction<string>>
+  shiftSelectedDate: (days: number) => string
+  toggleEditor: () => void
+  closeEditor: () => void
+  setTodayInputs: () => void
+  submitEditor: () => void
+  handleYearInputChange: (value: string) => void
+  handleMonthInputChange: (value: string) => void
+  handleDayInputChange: (value: string) => void
+  handleDayInputKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => void
+  handleSelectAllOnFocus: (event: React.FocusEvent<HTMLInputElement>) => void
+  handlePadOnBlur: (field: 'year' | 'month' | 'day') => void
+}
+
 const createDefaultFieldErrors = (): DateFieldErrors => ({ year: false, month: false, day: false })
 
-const validateDateInputs = (nextYear: string, nextMonth: string, nextDay: string): ValidationResult => {
+const validateDateInputs = (
+  nextYear: string,
+  nextMonth: string,
+  nextDay: string
+): ValidationResult => {
   const fieldErrors: DateFieldErrors = {
     year: nextYear.length !== 4,
     month: nextMonth.length !== 2,
@@ -52,14 +87,16 @@ const validateDateInputs = (nextYear: string, nextMonth: string, nextDay: string
 }
 
 // 年月日入力の状態管理を単一責務で扱うフック
-export const useDateEditor = () => {
+export const useDateEditor = (): UseDateEditorResult => {
   const [selectedDate, setSelectedDate] = useState<string>(formatInputDate(new Date()))
   const [isDateEditorOpen, setIsDateEditorOpen] = useState(false)
   const [yearInput, setYearInput] = useState<string>(selectedDate.slice(0, 4))
   const [monthInput, setMonthInput] = useState<string>(selectedDate.slice(5, 7))
   const [dayInput, setDayInput] = useState<string>(selectedDate.slice(8, 10))
   const [dateEditorError, setDateEditorError] = useState('')
-  const [dateFieldErrors, setDateFieldErrors] = useState<DateFieldErrors>(createDefaultFieldErrors())
+  const [dateFieldErrors, setDateFieldErrors] = useState<DateFieldErrors>(
+    createDefaultFieldErrors()
+  )
 
   const yearInputRef = useRef<HTMLInputElement | null>(null)
   const monthInputRef = useRef<HTMLInputElement | null>(null)

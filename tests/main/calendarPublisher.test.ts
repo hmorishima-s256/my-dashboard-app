@@ -15,7 +15,7 @@ describe('calendarPublisher', () => {
 
     const publisher = createCalendarPublisher({
       getCurrentUser: () => null,
-      getMainWindow: () => ({ isDestroyed: () => false, webContents: { send } }) as any,
+      getMainWindow: () => ({ isDestroyed: () => false, webContents: { send } }),
       getEventsByDate
     })
 
@@ -33,7 +33,7 @@ describe('calendarPublisher', () => {
 
     const publisher = createCalendarPublisher({
       getCurrentUser: () => user,
-      getMainWindow: () => ({ isDestroyed: () => false, webContents: { send } }) as any,
+      getMainWindow: () => ({ isDestroyed: () => false, webContents: { send } }),
       getEventsByDate
     })
 
@@ -41,7 +41,10 @@ describe('calendarPublisher', () => {
 
     expect(getEventsByDate).toHaveBeenCalledWith('2026-02-18')
     expect(send).toHaveBeenCalledTimes(1)
-    const [channel, payload] = send.mock.calls[0] as [string, { source: string; events: CalendarTableRow[]; updatedAt: string }]
+    const [channel, payload] = send.mock.calls[0] as [
+      string,
+      { source: string; events: CalendarTableRow[]; updatedAt: string }
+    ]
     expect(channel).toBe('calendar-updated')
     expect(payload.events).toEqual(rows)
     expect(payload.source).toBe('manual')
@@ -57,7 +60,7 @@ describe('calendarPublisher', () => {
 
     const publisher = createCalendarPublisher({
       getCurrentUser: () => user,
-      getMainWindow: () => ({ isDestroyed: () => false, webContents: { send } }) as any,
+      getMainWindow: () => ({ isDestroyed: () => false, webContents: { send } }),
       getEventsByDate
     })
 
@@ -72,13 +75,16 @@ describe('calendarPublisher', () => {
     const send = vi.fn()
     const publisher = createCalendarPublisher({
       getCurrentUser: () => user,
-      getMainWindow: () => ({ isDestroyed: () => false, webContents: { send } }) as any,
+      getMainWindow: () => ({ isDestroyed: () => false, webContents: { send } }),
       getEventsByDate: async () => []
     })
 
     publisher.publishEmptyManualUpdate()
     expect(send).toHaveBeenCalledTimes(1)
-    const [channel, payload] = send.mock.calls[0] as [string, { source: string; events: CalendarTableRow[] }]
+    const [channel, payload] = send.mock.calls[0] as [
+      string,
+      { source: string; events: CalendarTableRow[] }
+    ]
     expect(channel).toBe('calendar-updated')
     expect(payload.events).toEqual([])
     expect(payload.source).toBe('manual')

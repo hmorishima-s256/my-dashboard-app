@@ -1,20 +1,35 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import type { AuthLoginResult, AuthLogoutResult, UserProfile } from '../types/ui'
 
+type UseAuthControllerResult = {
+  currentUser: UserProfile | null
+  isProfileMenuOpen: boolean
+  isAuthProcessing: boolean
+  isLogoutConfirmOpen: boolean
+  setCurrentUser: React.Dispatch<React.SetStateAction<UserProfile | null>>
+  setIsProfileMenuOpen: React.Dispatch<React.SetStateAction<boolean>>
+  setIsLogoutConfirmOpen: React.Dispatch<React.SetStateAction<boolean>>
+  loadCurrentUser: () => Promise<UserProfile | null>
+  login: (onAfterLogin?: (user: UserProfile) => Promise<void> | void) => Promise<void>
+  logout: (onAfterLogout?: () => Promise<void> | void) => Promise<void>
+}
+
 // 認証状態（ログイン・ログアウト）を担当するフック
-export const useAuthController = () => {
+export const useAuthController = (): UseAuthControllerResult => {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null)
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false)
   const [isAuthProcessing, setIsAuthProcessing] = useState(false)
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false)
 
-  const loadCurrentUser = async (): Promise<UserProfile | null> => {
+  const loadCurrentUser = useCallback(async (): Promise<UserProfile | null> => {
     const user = await window.api.authGetCurrentUser()
     setCurrentUser(user)
     return user
-  }
+  }, [])
 
-  const login = async (onAfterLogin?: (user: UserProfile) => Promise<void> | void): Promise<void> => {
+  const login = async (
+    onAfterLogin?: (user: UserProfile) => Promise<void> | void
+  ): Promise<void> => {
     if (isAuthProcessing) return
     setIsAuthProcessing(true)
     try {

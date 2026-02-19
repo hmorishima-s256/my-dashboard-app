@@ -8,22 +8,23 @@
 
 ## 5.2 Preload公開API（`window.api`）
 
-| API | 引数 | 戻り値 | 用途 |
-|---|---|---|---|
-| `getCalendar` | `targetDate?: string` | `Promise<CalendarTableRow[]>` | 指定日予定を手動同期 |
-| `getSettings` | なし | `Promise<AppSettings>` | 設定取得 |
-| `saveSettings` | `AppSettings` | `Promise<AppSettings>` | 設定保存 |
-| `getDefaultProfileIconUrl` | なし | `Promise<string>` | 共有デフォルトアイコンURL取得 |
-| `taskGetAll` | `userId: string, targetDate: string` | `Promise<TaskListResponse>` | 指定日タスク取得 |
-| `taskAdd` | `TaskCreateInput` | `Promise<Task>` | タスク追加 |
-| `taskUpdate` | `Task` | `Promise<Task \| null>` | タスク更新 |
-| `taskDelete` | `taskId: string` | `Promise<boolean>` | タスク削除 |
-| `authLogin` | なし | `Promise<AuthLoginResult>` | Googleログイン |
-| `authLogout` | なし | `Promise<AuthLogoutResult>` | ログアウト |
-| `authGetCurrentUser` | なし | `Promise<UserProfile \| null>` | 現在ユーザー取得 |
-| `onCalendarUpdated` | `callback` | `unsubscribe` | 予定更新通知購読 |
+| API                        | 引数                                 | 戻り値                         | 用途                          |
+| -------------------------- | ------------------------------------ | ------------------------------ | ----------------------------- |
+| `getCalendar`              | `targetDate?: string`                | `Promise<CalendarTableRow[]>`  | 指定日予定を手動同期          |
+| `getSettings`              | なし                                 | `Promise<AppSettings>`         | 設定取得                      |
+| `saveSettings`             | `AppSettings`                        | `Promise<AppSettings>`         | 設定保存                      |
+| `getDefaultProfileIconUrl` | なし                                 | `Promise<string>`              | 共有デフォルトアイコンURL取得 |
+| `taskGetAll`               | `userId: string, targetDate: string` | `Promise<TaskListResponse>`    | 指定日タスク取得              |
+| `taskAdd`                  | `TaskCreateInput`                    | `Promise<Task>`                | タスク追加                    |
+| `taskUpdate`               | `Task`                               | `Promise<Task \| null>`        | タスク更新                    |
+| `taskDelete`               | `taskId: string`                     | `Promise<boolean>`             | タスク削除                    |
+| `authLogin`                | なし                                 | `Promise<AuthLoginResult>`     | Googleログイン                |
+| `authLogout`               | なし                                 | `Promise<AuthLogoutResult>`    | ログアウト                    |
+| `authGetCurrentUser`       | なし                                 | `Promise<UserProfile \| null>` | 現在ユーザー取得              |
+| `onCalendarUpdated`        | `callback`                           | `unsubscribe`                  | 予定更新通知購読              |
 
 注記:
+
 - `taskGetAll` の `userId` は後方互換のため受け取るが、Main側では現在ログインユーザーを基準に解決する。
 
 ## 5.3 Main IPCハンドラ

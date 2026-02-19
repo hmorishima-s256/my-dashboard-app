@@ -6,7 +6,10 @@ type DashboardTabsProps = {
 }
 
 // 予定表/タスクのタブ切替を担当する表示コンポーネント
-export const DashboardTabs = ({ activeTab, onChangeTab }: DashboardTabsProps): React.JSX.Element => {
+export const DashboardTabs = ({
+  activeTab,
+  onChangeTab
+}: DashboardTabsProps): React.JSX.Element => {
   return (
     <div className="dashboard-tabs">
       <button

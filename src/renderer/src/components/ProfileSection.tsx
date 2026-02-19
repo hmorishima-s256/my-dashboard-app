@@ -42,7 +42,11 @@ export const ProfileSection = ({
               <div className="profile-email">{currentUser.email}</div>
             </div>
           </div>
-          <button className="logout-button" onClick={onOpenLogoutConfirm} disabled={isAuthProcessing}>
+          <button
+            className="logout-button"
+            onClick={onOpenLogoutConfirm}
+            disabled={isAuthProcessing}
+          >
             ログアウト
           </button>
         </div>

@@ -12,7 +12,9 @@ const createTempRoot = async (): Promise<string> => {
   return root
 }
 
-const loadAppSettingsModule = async (rootPath: string) => {
+const loadAppSettingsModule = async (
+  rootPath: string
+): Promise<typeof import('../../src/main/appSettings')> => {
   const sharedDirPath = path.join(rootPath, '_shared')
 
   vi.resetModules()

@@ -140,7 +140,10 @@ const formatDurationForList = (minutes: number, mode: TaskTimeDisplayMode): stri
   return `${formatMinutesAsHourMinute(minutes)}（${Math.max(0, Math.floor(minutes))}分）`
 }
 
-const buildTimeRangeText = (start: string | null | undefined, end: string | null | undefined): string => {
+const buildTimeRangeText = (
+  start: string | null | undefined,
+  end: string | null | undefined
+): string => {
   return `${start || '--:--'} - ${end || '--:--'}`
 }
 
@@ -161,7 +164,8 @@ const buildActualTimeRangeText = (task: Task): string => {
   return buildTimeRangeText(actualRange.start, actualRange.end)
 }
 
-const sortUnique = (values: string[]): string[] => Array.from(new Set(values)).sort((a, b) => a.localeCompare(b, 'ja'))
+const sortUnique = (values: string[]): string[] =>
+  Array.from(new Set(values)).sort((a, b) => a.localeCompare(b, 'ja'))
 
 const upsertProjectScopedValue = (
   previous: Record<string, string[]>,
@@ -398,7 +402,9 @@ export const TaskBoard = ({
   const handleChangeEstimatedDurationUnit = (nextUnit: DurationUnit): void => {
     setEstimatedDurationUnit(nextUnit)
     setEstimatedDurationInput(
-      estimatedDurationMinutes > 0 ? formatDurationValueByUnit(estimatedDurationMinutes, nextUnit) : ''
+      estimatedDurationMinutes > 0
+        ? formatDurationValueByUnit(estimatedDurationMinutes, nextUnit)
+        : ''
     )
   }
 
@@ -415,7 +421,11 @@ export const TaskBoard = ({
       setActualEnd(calculatedEnd)
       return
     }
-    const calculatedMinutes = syncActualMinutesByStartAndEnd(value, actualEnd, suspendDurationMinutes)
+    const calculatedMinutes = syncActualMinutesByStartAndEnd(
+      value,
+      actualEnd,
+      suspendDurationMinutes
+    )
     setActualDurationMinutes(calculatedMinutes)
     setActualDurationInput(formatDurationValueByUnit(calculatedMinutes, actualDurationUnit))
   }
@@ -427,7 +437,11 @@ export const TaskBoard = ({
       setActualDurationInput('')
       return
     }
-    const calculatedMinutes = syncActualMinutesByStartAndEnd(actualStart, value, suspendDurationMinutes)
+    const calculatedMinutes = syncActualMinutesByStartAndEnd(
+      actualStart,
+      value,
+      suspendDurationMinutes
+    )
     setActualDurationMinutes(calculatedMinutes)
     setActualDurationInput(formatDurationValueByUnit(calculatedMinutes, actualDurationUnit))
   }
@@ -457,7 +471,11 @@ export const TaskBoard = ({
     const minutes = parseDurationMinutes(value, suspendDurationUnit)
     setSuspendDurationMinutes(minutes)
 
-    const recalculatedActualMinutes = syncActualMinutesByStartAndEnd(actualStart, actualEnd, minutes)
+    const recalculatedActualMinutes = syncActualMinutesByStartAndEnd(
+      actualStart,
+      actualEnd,
+      minutes
+    )
     setActualDurationMinutes(recalculatedActualMinutes)
     setActualDurationInput(formatDurationValueByUnit(recalculatedActualMinutes, actualDurationUnit))
 
@@ -529,10 +547,16 @@ export const TaskBoard = ({
         await loadTaskData()
         return
       }
-      setTasks((previous) => previous.map((task) => (task.id === updatedTask.id ? updatedTask : task)))
+      setTasks((previous) =>
+        previous.map((task) => (task.id === updatedTask.id ? updatedTask : task))
+      )
       setProjectMaster((previous) => sortUnique([...previous, updatedTask.project]))
-      setProjectCategoryMap((previous) => upsertProjectScopedValue(previous, updatedTask.project, updatedTask.category))
-      setProjectTitleMap((previous) => upsertProjectScopedValue(previous, updatedTask.project, updatedTask.title))
+      setProjectCategoryMap((previous) =>
+        upsertProjectScopedValue(previous, updatedTask.project, updatedTask.category)
+      )
+      setProjectTitleMap((previous) =>
+        upsertProjectScopedValue(previous, updatedTask.project, updatedTask.title)
+      )
     } catch (error) {
       console.error('Failed to update task:', error)
       setErrorMessage('タスクの更新に失敗しました。')
@@ -619,7 +643,9 @@ export const TaskBoard = ({
       closeTaskModal()
     } catch (error) {
       console.error('Failed to save task:', error)
-      setErrorMessage(taskModalMode === 'create' ? 'タスクの追加に失敗しました。' : 'タスクの更新に失敗しました。')
+      setErrorMessage(
+        taskModalMode === 'create' ? 'タスクの追加に失敗しました。' : 'タスクの更新に失敗しました。'
+      )
     } finally {
       setIsSaving(false)
     }
@@ -667,7 +693,9 @@ export const TaskBoard = ({
           <div className="task-table-title-wrap">
             <h3 className="task-table-title">タスク一覧</h3>
             <span className="task-table-subtitle">{selectedDateLabel}</span>
-            {isGuest ? <span className="task-form-guest-tag">ゲストモード（終了時に消えます）</span> : null}
+            {isGuest ? (
+              <span className="task-form-guest-tag">ゲストモード（終了時に消えます）</span>
+            ) : null}
           </div>
           <button className="task-open-modal-button" type="button" onClick={openCreateModal}>
             タスク登録
@@ -702,7 +730,9 @@ export const TaskBoard = ({
                     <select
                       className={`task-status-select status-${task.status}`}
                       value={task.status}
-                      onChange={(event) => void saveTask({ ...task, status: event.target.value as TaskStatus })}
+                      onChange={(event) =>
+                        void saveTask({ ...task, status: event.target.value as TaskStatus })
+                      }
                     >
                       {STATUS_OPTIONS.map((option) => (
                         <option key={option.value} value={option.value}>
@@ -712,7 +742,9 @@ export const TaskBoard = ({
                     </select>
                   </td>
                   <td>
-                    <span className={`task-priority priority-${task.priority}`}>{task.priority}</span>
+                    <span className={`task-priority priority-${task.priority}`}>
+                      {task.priority}
+                    </span>
                   </td>
                   <td>
                     <div>{buildTimeRangeText(task.estimated.start, task.estimated.end)}</div>
@@ -736,7 +768,11 @@ export const TaskBoard = ({
                         開始
                       </button>
                       {task.status === 'suspend' ? (
-                        <button className="resume" type="button" onClick={() => void handleResume(task)}>
+                        <button
+                          className="resume"
+                          type="button"
+                          onClick={() => void handleResume(task)}
+                        >
                           再開
                         </button>
                       ) : (
@@ -755,7 +791,11 @@ export const TaskBoard = ({
                       <button className="done" type="button" onClick={() => void handleDone(task)}>
                         完了
                       </button>
-                      <button className="danger" type="button" onClick={() => void handleDelete(task.id)}>
+                      <button
+                        className="danger"
+                        type="button"
+                        onClick={() => void handleDelete(task.id)}
+                      >
                         削除
                       </button>
                     </div>
@@ -792,7 +832,9 @@ export const TaskBoard = ({
                   styles={selectStyles}
                   options={projectOptions}
                   value={project ? { label: project, value: project } : null}
-                  onChange={(option: SingleValue<SelectOption>) => handleProjectValueChange(option?.value ?? '')}
+                  onChange={(option: SingleValue<SelectOption>) =>
+                    handleProjectValueChange(option?.value ?? '')
+                  }
                   onCreateOption={(value) => handleProjectValueChange(value)}
                   placeholder="案件を選択または入力"
                   formatCreateLabel={(value) => `新規作成: ${value}`}
@@ -829,7 +871,10 @@ export const TaskBoard = ({
 
               <div className="task-field task-field-half">
                 <label>初期ステータス</label>
-                <select value={status} onChange={(event) => setStatus(event.target.value as TaskStatus)}>
+                <select
+                  value={status}
+                  onChange={(event) => setStatus(event.target.value as TaskStatus)}
+                >
                   {STATUS_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
@@ -840,7 +885,10 @@ export const TaskBoard = ({
 
               <div className="task-field task-field-half">
                 <label>優先度</label>
-                <select value={priority} onChange={(event) => setPriority(event.target.value as TaskPriority)}>
+                <select
+                  value={priority}
+                  onChange={(event) => setPriority(event.target.value as TaskPriority)}
+                >
                   {PRIORITY_OPTIONS.map((option) => (
                     <option key={option} value={option}>
                       {option}
@@ -888,7 +936,9 @@ export const TaskBoard = ({
                                 : undefined
                           }
                           value={estimatedDurationInput}
-                          onChange={(event) => handleChangeEstimatedDurationValue(event.target.value)}
+                          onChange={(event) =>
+                            handleChangeEstimatedDurationValue(event.target.value)
+                          }
                           placeholder={
                             estimatedDurationUnit === 'hourMinute'
                               ? '6時間45分'
@@ -899,7 +949,9 @@ export const TaskBoard = ({
                         />
                         <select
                           value={estimatedDurationUnit}
-                          onChange={(event) => handleChangeEstimatedDurationUnit(event.target.value as DurationUnit)}
+                          onChange={(event) =>
+                            handleChangeEstimatedDurationUnit(event.target.value as DurationUnit)
+                          }
                         >
                           <option value="hourMinute">時間</option>
                           <option value="decimalHours">時間（小数）</option>
@@ -919,12 +971,20 @@ export const TaskBoard = ({
                   <div className="task-group-grid">
                     <div className="task-field task-field-half">
                       <label>開始時間</label>
-                      <input type="time" value={actualStart} onChange={(event) => handleChangeActualStart(event.target.value)} />
+                      <input
+                        type="time"
+                        value={actualStart}
+                        onChange={(event) => handleChangeActualStart(event.target.value)}
+                      />
                     </div>
 
                     <div className="task-field task-field-half">
                       <label>終了時間</label>
-                      <input type="time" value={actualEnd} onChange={(event) => handleChangeActualEnd(event.target.value)} />
+                      <input
+                        type="time"
+                        value={actualEnd}
+                        onChange={(event) => handleChangeActualEnd(event.target.value)}
+                      />
                     </div>
 
                     <div className="task-field task-field-half">
@@ -953,7 +1013,9 @@ export const TaskBoard = ({
                         />
                         <select
                           value={suspendDurationUnit}
-                          onChange={(event) => handleChangeSuspendDurationUnit(event.target.value as DurationUnit)}
+                          onChange={(event) =>
+                            handleChangeSuspendDurationUnit(event.target.value as DurationUnit)
+                          }
                         >
                           <option value="hourMinute">時間</option>
                           <option value="decimalHours">時間（小数）</option>
@@ -988,7 +1050,9 @@ export const TaskBoard = ({
                         />
                         <select
                           value={actualDurationUnit}
-                          onChange={(event) => handleChangeActualDurationUnit(event.target.value as DurationUnit)}
+                          onChange={(event) =>
+                            handleChangeActualDurationUnit(event.target.value as DurationUnit)
+                          }
                         >
                           <option value="hourMinute">時間</option>
                           <option value="decimalHours">時間（小数）</option>
@@ -1013,10 +1077,20 @@ export const TaskBoard = ({
             {errorMessage ? <p className="task-inline-error">{errorMessage}</p> : null}
 
             <div className="task-form-actions">
-              <button className="task-action-button secondary" type="button" onClick={closeTaskModal} disabled={isSaving}>
+              <button
+                className="task-action-button secondary"
+                type="button"
+                onClick={closeTaskModal}
+                disabled={isSaving}
+              >
                 キャンセル
               </button>
-              <button className="task-action-button secondary" type="button" onClick={resetForm} disabled={isSaving}>
+              <button
+                className="task-action-button secondary"
+                type="button"
+                onClick={resetForm}
+                disabled={isSaving}
+              >
                 クリア
               </button>
               <button

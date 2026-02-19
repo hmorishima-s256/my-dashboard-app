@@ -10,13 +10,21 @@ type AutoFetchSchedulerDependencies = {
   fetchByDate: (targetDate: string, source: 'auto') => Promise<void>
 }
 
+type AutoFetchSchedulerService = {
+  start: () => void
+  stop: () => void
+  resetRunState: () => void
+}
+
 const pad2 = (value: number): string => String(value).padStart(2, '0')
 const buildDateKey = (date: Date): string =>
   `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`
 const buildTimeKey = (date: Date): string => `${pad2(date.getHours())}:${pad2(date.getMinutes())}`
 
 // 自動取得の判定と実行を担当するサービス
-export const createAutoFetchScheduler = (dependencies: AutoFetchSchedulerDependencies) => {
+export const createAutoFetchScheduler = (
+  dependencies: AutoFetchSchedulerDependencies
+): AutoFetchSchedulerService => {
   let timer: NodeJS.Timeout | null = null
 
   const runAutoFetchIfNeeded = async (): Promise<void> => {
