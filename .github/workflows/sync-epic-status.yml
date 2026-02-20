@@ -1,0 +1,77 @@
+name: Sync EPIC status with sub-issues
+
+on:
+  issues:
+    types: [opened, reopened, closed, labeled, unlabeled]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  sync-epics:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Close/reopen epic issues based on sub-issue states
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          epic_numbers="$(
+            gh api "repos/$REPO/issues?state=all&labels=epic&per_page=100" \
+              -H "Accept: application/vnd.github+json" \
+              --jq '.[] | select(.pull_request|not) | .number'
+          )"
+
+          if [ -z "${epic_numbers:-}" ]; then
+            echo "No epic issues found."
+            exit 0
+          fi
+
+          for epic_number in $epic_numbers; do
+            if ! sub_issues_json="$(
+              gh api "repos/$REPO/issues/$epic_number/sub_issues?per_page=100" \
+                -H "Accept: application/vnd.github+json" \
+                -H "X-GitHub-Api-Version: 2022-11-28" 2>/dev/null
+            )"; then
+              echo "Skip epic #$epic_number (sub_issues API unavailable)."
+              continue
+            fi
+
+            total_count="$(echo "$sub_issues_json" | jq 'length')"
+            if [ "$total_count" -eq 0 ]; then
+              echo "Epic #$epic_number has no sub-issues."
+              continue
+            fi
+
+            open_count="$(echo "$sub_issues_json" | jq '[.[] | select(.state == "open")] | length')"
+            epic_state="$(gh api "repos/$REPO/issues/$epic_number" --jq '.state')"
+
+            if [ "$open_count" -eq 0 ] && [ "$epic_state" != "closed" ]; then
+              gh api -X PATCH "repos/$REPO/issues/$epic_number" \
+                -f "state=closed" \
+                -H "Accept: application/vnd.github+json" >/dev/null
+
+              gh api -X POST "repos/$REPO/issues/$epic_number/comments" \
+                -f "body=All sub-issues are closed. Closing this EPIC automatically." \
+                -H "Accept: application/vnd.github+json" >/dev/null
+
+              echo "Closed epic #$epic_number"
+            elif [ "$open_count" -gt 0 ] && [ "$epic_state" = "closed" ]; then
+              gh api -X PATCH "repos/$REPO/issues/$epic_number" \
+                -f "state=open" \
+                -H "Accept: application/vnd.github+json" >/dev/null
+
+              gh api -X POST "repos/$REPO/issues/$epic_number/comments" \
+                -f "body=Some sub-issues are open again. Reopening this EPIC automatically." \
+                -H "Accept: application/vnd.github+json" >/dev/null
+
+              echo "Reopened epic #$epic_number"
+            else
+              echo "No epic state change needed for #$epic_number (open sub-issues: $open_count)."
+            fi
+          done
