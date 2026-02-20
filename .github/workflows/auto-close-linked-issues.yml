@@ -1,10 +1,11 @@
-name: Auto close linked issues on development merge
+name: Auto close linked issues on merge
 
 on:
   pull_request:
     types: [closed]
     branches:
       - development
+      - main
 
 permissions:
   contents: read
@@ -23,6 +24,7 @@ jobs:
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_BODY: ${{ github.event.pull_request.body }}
+          BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
         run: |
           set -euo pipefail
 
@@ -62,7 +64,7 @@ jobs:
               -H "Accept: application/vnd.github+json" >/dev/null
 
             gh api -X POST "repos/$REPO/issues/$issue_number/comments" \
-              -f "body=Closed automatically because PR #$PR_NUMBER was merged into development." \
+              -f "body=Closed automatically because PR #$PR_NUMBER was merged into $BASE_BRANCH." \
               -H "Accept: application/vnd.github+json" >/dev/null
 
             echo "Closed issue #$issue_number"
