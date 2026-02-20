@@ -1,0 +1,54 @@
+name: "EPIC: 機能追加"
+description: "大きめの機能を定義し、子Issueを自動生成するためのテンプレ"
+title: "[EPIC] "
+labels: ["epic"]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 自動生成について
+        - このIssueは Actions により「子Issue」を自動生成します。
+        - 「子Issue候補（自動生成用）」は 1行=1Issue です。
+        - 形式: <種別>|<タイトル>|<labelsカンマ区切り>
+
+  - type: textarea
+    id: goal
+    attributes:
+      label: 目的 / 背景
+      description: 説明
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 受け入れ条件（Acceptance Criteria）
+      description: 何ができたら完了か
+    validations:
+      required: true
+
+  - type: textarea
+    id: spec
+    attributes:
+      label: 仕様・関連ドキュメント
+      description: doc/README.md から辿れるリンクやパス
+    validations:
+      required: true
+
+  - type: textarea
+    id: children
+    attributes:
+      label: 子Issue候補（自動生成用）
+      description: |
+        1行1タスク。Actionsがここを読み取って子Issueを作成します。
+        形式: <種別>|<タイトル>|<labelsカンマ区切り>
+        例: feat|集計画面のUIを追加|ui,feat
+      value: |
+        feat|集計機能: 要件整理とdoc更新|docs,feat
+        feat|集計機能: 集計ロジック実装|feat
+        feat|集計機能: UI表示実装|ui,feat
+        test|集計機能: テスト追加|test
+      render: text
+    validations:
+      required: true
