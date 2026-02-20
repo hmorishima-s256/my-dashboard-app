@@ -1,0 +1,141 @@
+name: Generate sub-issue plan for EPIC
+
+on:
+  issues:
+    types: [opened, edited, labeled]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  generate-plan:
+    if: contains(github.event.issue.labels.*.name, 'epic')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Generate AI-style sub-issue proposal comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner
+            const repo = context.repo.repo
+            const issue = context.payload.issue
+            const issueNumber = issue.number
+            const body = issue.body || ''
+            const marker = '<!-- subissue-plan-generated:v1 -->'
+
+            const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+            const extractSection = (label) => {
+              const re = new RegExp(`###\\s+${escapeRegex(label)}\\s*\\n([\\s\\S]*?)(?=\\n###\\s+|$)`, 'm')
+              const m = body.match(re)
+              return m ? m[1].trim() : ''
+            }
+
+            const parseOwnerCandidates = () => {
+              const section = extractSection('子Issue候補（任意/参考）') || extractSection('子Issue候補（自動生成用）')
+              if (!section) return []
+              return section
+                .split('\n')
+                .map((line) => line.trim())
+                .filter((line) => line && line.includes('|'))
+                .map((line) => {
+                  const [kindRaw, titleRaw, ...labelsRaw] = line.split('|')
+                  const kind = (kindRaw || 'feat').trim() || 'feat'
+                  const title = (titleRaw || '').trim()
+                  const labels = labelsRaw.join('|')
+                    .split(',')
+                    .map((x) => x.trim())
+                    .filter(Boolean)
+                  return { kind, title, labels }
+                })
+                .filter((x) => x.title)
+            }
+
+            const classify = (text) => {
+              const t = text.toLowerCase()
+              if (/(test|テスト)/.test(text)) return { kind: 'test', labels: ['test'] }
+              if (/(doc|ドキュメント|仕様)/.test(text)) return { kind: 'docs', labels: ['docs'] }
+              if (/(fix|修正|不具合|バグ)/.test(text)) return { kind: 'fix', labels: ['fix'] }
+              if (/(ui|画面|表示)/.test(text)) return { kind: 'feat', labels: ['feat', 'ui'] }
+              if (/(ipc)/.test(t)) return { kind: 'feat', labels: ['feat', 'ipc'] }
+              if (/(storage|保存|データ|db)/.test(text)) return { kind: 'feat', labels: ['feat', 'storage'] }
+              return { kind: 'feat', labels: ['feat'] }
+            }
+
+            const parseAcceptanceCandidates = () => {
+              const section = extractSection('受け入れ条件（Acceptance Criteria）')
+              if (!section) return []
+              return section
+                .split('\n')
+                .map((line) => line.trim())
+                .filter((line) => /^[-*]\s+/.test(line))
+                .map((line) => line.replace(/^[-*]\s+/, '').replace(/^\[[ xX]\]\s+/, '').trim())
+                .filter(Boolean)
+                .map((title) => {
+                  const { kind, labels } = classify(title)
+                  return { kind, title, labels }
+                })
+            }
+
+            const ownerCandidates = parseOwnerCandidates()
+            const acceptanceCandidates = parseAcceptanceCandidates()
+
+            const merged = []
+            const seen = new Set()
+            const pushUnique = (item) => {
+              const key = item.title.toLowerCase()
+              if (seen.has(key)) return
+              seen.add(key)
+              const labels = [...new Set([...(item.labels || []), item.kind])].filter(Boolean)
+              merged.push({ kind: item.kind || 'feat', title: item.title, labels })
+            }
+
+            // オーナー入力は参考として扱い、受け入れ条件由来の分割を優先
+            acceptanceCandidates.forEach(pushUnique)
+            ownerCandidates.forEach(pushUnique)
+
+            if (merged.length === 0) {
+              ;[
+                { kind: 'docs', title: '要件整理とドキュメント更新', labels: ['docs'] },
+                { kind: 'feat', title: '実装', labels: ['feat'] },
+                { kind: 'test', title: 'テスト追加', labels: ['test'] }
+              ].forEach(pushUnique)
+            }
+
+            const planLines = merged.map((x) => `${x.kind}|${x.title}|${x.labels.join(',')}`)
+            const commentBody = [
+              marker,
+              '## 子Issue分割案（AI提案）',
+              '',
+              '以下は親Issue内容から再分割した提案です（オーナー入力は参考扱い）。',
+              '承認する場合は **`/approve-subissues`** とコメントしてください。',
+              '',
+              '```text',
+              ...planLines,
+              '```'
+            ].join('\n')
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner,
+              repo,
+              issue_number: issueNumber,
+              per_page: 100
+            })
+            const existing = comments.find((c) => c.body && c.body.includes(marker))
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body: commentBody
+              })
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: issueNumber,
+                body: commentBody
+              })
+            }
