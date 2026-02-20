@@ -1,0 +1,137 @@
+name: Auto create sub-issues from EPIC
+
+on:
+  issues:
+    types: [opened, labeled]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  create-subissues:
+    # epic ラベルが付いているときだけ実行
+    if: contains(github.event.issue.labels.*.name, 'epic')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Create sub-issues and link them as sub-issues
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PARENT_NUMBER: ${{ github.event.issue.number }}
+          PARENT_TITLE: ${{ github.event.issue.title }}
+          PARENT_BODY: ${{ github.event.issue.body }}
+        run: |
+          set -euo pipefail
+
+          # -----------------------------
+          # 二重生成防止：親Issueにマーカーコメントがあれば終了
+          # -----------------------------
+          if gh api "repos/$REPO/issues/$PARENT_NUMBER/comments" --jq '.[].body' | grep -q '\[subissues-generated\]'; then
+            echo "Already generated. Exit."
+            exit 0
+          fi
+
+          # -----------------------------
+          # 親Issue本文から「子Issue候補（自動生成用）」セクションを抽出
+          # Issue forms の回答は Markdown として本文に入ります :contentReference[oaicite:7]{index=7}
+          # 見出しは通常 "### <label>" 形式になることが多いので、それに合わせて抽出
+          # -----------------------------
+          printf "%s\n" "$PARENT_BODY" > parent.md
+
+          # "### 子Issue候補（自動生成用）" の次行から、次の "### " 見出しまで
+          awk '
+            found==0 && $0 ~ /^###\s+子Issue候補（自動生成用）/ {found=1; next}
+            found==1 && $0 ~ /^###\s+/ {exit}
+            found==1 {print}
+          ' parent.md > children_block.txt
+
+          # 空なら終了（テンプレ崩れ対策）
+          if [ ! -s children_block.txt ]; then
+            echo "No children block found. Exit."
+            exit 0
+          fi
+
+          # -----------------------------
+          # 1行1タスク: <種別>|<タイトル>|<labelsカンマ区切り>
+          # -----------------------------
+          while IFS= read -r line; do
+            # 前後空白除去
+            line="$(echo "$line" | sed 's/^\s*//;s/\s*$//')"
+
+            # 空行スキップ
+            [ -z "$line" ] && continue
+
+            # 期待形式でない行はスキップ（安全側）
+            if ! echo "$line" | grep -q '|'; then
+              echo "Skip (no delimiter): $line"
+              continue
+            fi
+
+            kind="$(echo "$line" | cut -d'|' -f1 | sed 's/^\s*//;s/\s*$//')"
+            title="$(echo "$line" | cut -d'|' -f2 | sed 's/^\s*//;s/\s*$//')"
+            labels_raw="$(echo "$line" | cut -d'|' -f3- | sed 's/^\s*//;s/\s*$//')"
+
+            [ -z "$title" ] && continue
+
+            # ラベルを配列に（カンマ区切り）
+            # 追加で kind ラベルも入れたいならここで足す（例: feat/test/docs）
+            labels_args=()
+            if [ -n "$labels_raw" ]; then
+              IFS=',' read -ra arr <<< "$labels_raw"
+              for x in "${arr[@]}"; do
+                x_trim="$(echo "$x" | sed 's/^\s*//;s/\s*$//')"
+                [ -n "$x_trim" ] && labels_args+=(-f "labels[]=$x_trim")
+              done
+            fi
+            if [ -n "$kind" ]; then
+              labels_args+=(-f "labels[]=$kind")
+            fi
+
+            # 子Issue本文
+            body="$(printf '%s\n' \
+              "親Issue: #$PARENT_NUMBER" \
+              "EPIC: $PARENT_TITLE" \
+              "" \
+              "- 作業開始前に doc/README.md を読むこと" \
+              "- .codex/AGENTS.md のルール（ブランチ/PR/DoD）を必ず守ること" \
+              "" \
+              "## DoD（要約）" \
+              "- ローカル: npm run format / lint / typecheck / test を全て成功させる" \
+              "- PR: CI（format:check/lint/typecheck/test）を成功させる")"
+
+            # -----------------------------
+            # 子Issue作成（REST API）
+            # -----------------------------
+            child_json="$(gh api -X POST "repos/$REPO/issues" \
+              -f "title=$title" \
+              -f "body=$body" \
+              "${labels_args[@]}" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28")"
+
+            child_number="$(echo "$child_json" | jq -r '.number')"
+            child_id="$(echo "$child_json" | jq -r '.id')"
+
+            echo "Created child issue: #$child_number (id=$child_id) title=$title"
+
+            # -----------------------------
+            # sub-issue として親に紐づけ（sub_issue_id が必要） :contentReference[oaicite:8]{index=8}
+            # -----------------------------
+            gh api -X POST "repos/$REPO/issues/$PARENT_NUMBER/sub_issues" \
+              -f "sub_issue_id=$child_id" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" >/dev/null
+
+            echo "Linked as sub-issue: #$child_number -> parent #$PARENT_NUMBER"
+
+          done < children_block.txt
+
+          # -----------------------------
+          # 生成済みマーカーコメント（再実行防止）
+          # -----------------------------
+          gh api -X POST "repos/$REPO/issues/$PARENT_NUMBER/comments" \
+            -f "body=[subissues-generated] 子Issueを自動生成し、親Issueに紐づけました。" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" >/dev/null
