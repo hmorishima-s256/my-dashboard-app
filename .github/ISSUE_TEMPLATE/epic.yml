@@ -1,7 +1,7 @@
-name: "EPIC: 機能追加"
-description: "大きめの機能を定義し、子Issueを自動生成するためのテンプレ"
-title: "[EPIC] "
-labels: ["epic"]
+name: 'EPIC: 機能追加'
+description: '大きめの機能を定義し、子Issueを自動生成するためのテンプレ'
+title: '[EPIC] '
+labels: ['epic']
 
 body:
   - type: markdown
