@@ -1,0 +1,111 @@
+name: PR auto remediation (style only)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches:
+      - development
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  style-auto-remediation:
+    if: |
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.base.ref == 'development'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Format check
+        id: format_check
+        continue-on-error: true
+        run: npm run format:check
+
+      - name: Lint check
+        id: lint_check
+        continue-on-error: true
+        run: npm run lint
+
+      - name: Auto-fix format/lint and push to same PR
+        id: style_fix
+        if: steps.format_check.outcome != 'success' || steps.lint_check.outcome != 'success'
+        run: |
+          set -euo pipefail
+
+          npm run format || true
+          npx eslint --cache --fix . || true
+
+          if git diff --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore: auto-fix format/lint issues"
+          git push
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Comment style remediation result
+        if: steps.format_check.outcome != 'success' || steps.lint_check.outcome != 'success'
+        uses: actions/github-script@v7
+        env:
+          CHANGED: ${{ steps.style_fix.outputs.changed }}
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number
+            const changed = process.env.CHANGED === 'true'
+            const body = changed
+              ? 'format/lint 失敗を検知したため、自動修正を同PRへ追コミットしました。CI再実行結果を確認してください。'
+              : 'format/lint 失敗を検知しましたが、自動修正で差分が出ませんでした。オーナー判断で修正方針を決定してください。'
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body
+            })
+
+      - name: Typecheck
+        id: typecheck
+        if: steps.format_check.outcome == 'success' && steps.lint_check.outcome == 'success'
+        continue-on-error: true
+        run: npm run typecheck
+
+      - name: Test
+        id: test
+        if: steps.format_check.outcome == 'success' && steps.lint_check.outcome == 'success'
+        continue-on-error: true
+        run: npm run test
+
+      - name: Comment owner-review required for non-style failures
+        if: |
+          (steps.typecheck.outcome == 'failure' || steps.test.outcome == 'failure') &&
+          steps.format_check.outcome == 'success' &&
+          steps.lint_check.outcome == 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: 'typecheck/test の失敗を検知しました。自動修正対象外のため、オーナー判断で修正方針を指示してください。'
+            })
