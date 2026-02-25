@@ -52,7 +52,7 @@ jobs:
 
           if [ ! -s plan_lines.txt ]; then
             gh api -X POST "repos/$REPO/issues/$PARENT_NUMBER/comments" \
-              -f "body=子Issue生成に失敗しました。分割案の形式を確認してください（```text 内に1行1タスク）。" \
+              -f "body=子Issue生成に失敗しました。分割案の形式を確認してください（textコードブロック内に1行1タスク）。" \
               -H "Accept: application/vnd.github+json" >/dev/null
             exit 1
           fi
