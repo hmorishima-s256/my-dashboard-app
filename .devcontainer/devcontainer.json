@@ -4,7 +4,8 @@
     "dockerfile": "Dockerfile",
     "context": ".."
   },
-  "remoteUser": "node",
+  "remoteUser": "root",
+  "containerUser": "root",
   "runArgs": ["--init"],
   "features": {
     "ghcr.io/devcontainers/features/desktop-lite:1": {
