@@ -20,6 +20,24 @@ type OAuthClientConfig = {
   redirectUri: URL
 }
 
+type OAuthClientKeys = {
+  client_id: string
+  client_secret: string
+  redirect_uris: string[]
+}
+
+type OAuthClientCredentials = {
+  installed?: OAuthClientKeys
+  web?: OAuthClientKeys
+}
+
+type OAuthClientKeySet = {
+  clientId: string
+  clientSecret: string
+  redirectUris: string[]
+  sourcePath: string
+}
+
 type CurrentUserPointer = {
   email: string
 }
@@ -74,7 +92,8 @@ export const APP_LOCAL_ROOT_PATH = path.join(os.homedir(), 'my-dashboard-app')
 // ユーザー共通ファイルの保存先（current-user.json など）
 export const APP_SHARED_CONFIG_DIR = path.join(APP_LOCAL_ROOT_PATH, '_shared')
 const CURRENT_USER_FILE_PATH = path.join(APP_SHARED_CONFIG_DIR, 'current-user.json')
-const CREDENTIALS_PATH = path.join(process.cwd(), 'credentials.json')
+const CREDENTIALS_FILE_NAME = 'credentials.json'
+const CREDENTIALS_PATH_ENV = 'MY_DASHBOARD_CREDENTIALS_PATH'
 const DEFAULT_PROFILE_ICON_PATH = path.join(APP_SHARED_CONFIG_DIR, 'electron.svg')
 const GOOGLE_API_RETRY_MAX_ATTEMPTS = 3
 const GOOGLE_API_RETRY_BASE_DELAY_MS = 500
@@ -193,28 +212,82 @@ export const getDefaultProfileIconUrl = async (): Promise<string> => {
   return pathToFileURL(DEFAULT_PROFILE_ICON_PATH).toString()
 }
 
-// OAuth 設定ファイルを読み込み、localhost redirect_uri を返す
-const loadOAuthClientConfig = async (): Promise<OAuthClientConfig> => {
-  const credentialsContent = await fs.readFile(CREDENTIALS_PATH, 'utf-8')
-  const credentials = JSON.parse(credentialsContent) as {
-    installed?: {
-      client_id: string
-      client_secret: string
-      redirect_uris: string[]
+// credentials.json の候補パスを列挙する
+const collectCredentialCandidates = (): string[] => {
+  const candidates: string[] = []
+  const resourcesPath = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath
+  const appendWithParents = (basePath: string, maxDepth: number): void => {
+    let current = path.resolve(basePath)
+    for (let depth = 0; depth <= maxDepth; depth += 1) {
+      candidates.push(path.join(current, CREDENTIALS_FILE_NAME))
+      const parent = path.dirname(current)
+      if (parent === current) {
+        break
+      }
+      current = parent
     }
-    web?: {
-      client_id: string
-      client_secret: string
-      redirect_uris: string[]
+  }
+
+  if (process.env[CREDENTIALS_PATH_ENV]) {
+    candidates.push(path.resolve(process.env[CREDENTIALS_PATH_ENV]))
+  }
+
+  appendWithParents(process.cwd(), 4)
+  appendWithParents(path.dirname(process.execPath), 3)
+  if (typeof resourcesPath === 'string' && resourcesPath.length > 0) {
+    appendWithParents(resourcesPath, 2)
+  }
+
+  candidates.push(path.join(APP_SHARED_CONFIG_DIR, CREDENTIALS_FILE_NAME))
+  return [...new Set(candidates.map((candidate) => path.resolve(candidate)))]
+}
+
+// 利用可能な credentials.json のパスを返す
+const resolveCredentialsPath = async (): Promise<string> => {
+  const candidates = collectCredentialCandidates()
+  for (const candidate of candidates) {
+    try {
+      await fs.access(candidate)
+      return candidate
+    } catch {
+      // 次候補を試す
     }
+  }
+
+  throw new Error(`credentials.json が見つかりません。確認先: ${candidates.join(', ')}`)
+}
+
+// credentials.json から OAuth クライアント情報を読み込む
+const loadOAuthClientKeys = async (): Promise<OAuthClientKeySet> => {
+  const credentialsPath = await resolveCredentialsPath()
+  const credentialsContent = await fs.readFile(credentialsPath, 'utf-8')
+  let credentials: OAuthClientCredentials
+  try {
+    credentials = JSON.parse(credentialsContent) as OAuthClientCredentials
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown parse error'
+    throw new Error(`Invalid credentials.json: parse failed (${credentialsPath}) ${message}`)
   }
 
   const keys = credentials.installed || credentials.web
   if (!keys) {
-    throw new Error('Invalid credentials.json: installed/web section is missing')
+    throw new Error(
+      `Invalid credentials.json: installed/web section is missing (${credentialsPath})`
+    )
   }
 
-  const redirectUriRaw = keys.redirect_uris.find((uri) => {
+  return {
+    clientId: keys.client_id,
+    clientSecret: keys.client_secret,
+    redirectUris: keys.redirect_uris || [],
+    sourcePath: credentialsPath
+  }
+}
+
+// OAuth 設定ファイルを読み込み、localhost redirect_uri を返す
+const loadOAuthClientConfig = async (): Promise<OAuthClientConfig> => {
+  const keySet = await loadOAuthClientKeys()
+  const redirectUriRaw = keySet.redirectUris.find((uri) => {
     try {
       const parsed = new URL(uri)
       return parsed.hostname === 'localhost'
@@ -224,12 +297,14 @@ const loadOAuthClientConfig = async (): Promise<OAuthClientConfig> => {
   })
 
   if (!redirectUriRaw) {
-    throw new Error('Invalid credentials.json: localhost redirect_uris is missing')
+    throw new Error(
+      `Invalid credentials.json: localhost redirect_uris is missing (${keySet.sourcePath})`
+    )
   }
 
   return {
-    clientId: keys.client_id,
-    clientSecret: keys.client_secret,
+    clientId: keySet.clientId,
+    clientSecret: keySet.clientSecret,
     redirectUri: new URL(redirectUriRaw)
   }
 }
@@ -301,13 +376,11 @@ async function loadSavedCredentialsIfExist(): Promise<AuthClient | null> {
 
 // ユーザーごとの token.json を保存する
 async function saveCredentials(client: AuthClient, email: string): Promise<void> {
-  const content = await fs.readFile(CREDENTIALS_PATH, 'utf-8')
-  const keys = JSON.parse(content)
-  const key = keys.installed || keys.web
+  const keySet = await loadOAuthClientKeys()
   const payload = JSON.stringify({
     type: 'authorized_user',
-    client_id: key.client_id,
-    client_secret: key.client_secret,
+    client_id: keySet.clientId,
+    client_secret: keySet.clientSecret,
     refresh_token: client.credentials.refresh_token
   })
   const tokenPath = getTokenPath(email)
@@ -452,22 +525,34 @@ const authorizeWithBrowser = async (): Promise<AuthClient> => {
       }
     })
 
-    server.listen(0, '127.0.0.1', async () => {
-      const address = server.address()
-      if (!address || typeof address === 'string') {
-        reject(new Error('Failed to start local auth server'))
-        return
-      }
+    server.listen(0, '127.0.0.1', () => {
+      void (async () => {
+        try {
+          const address = server.address()
+          if (!address || typeof address === 'string') {
+            reject(new Error('Failed to start local auth server'))
+            server.close()
+            return
+          }
 
-      redirectUri.port = String(address.port)
-      const authUrl = oauthClient.generateAuthUrl({
-        redirect_uri: redirectUri.toString(),
-        access_type: 'offline',
-        prompt: 'consent',
-        scope: GOOGLE_SCOPES
-      })
+          redirectUri.port = String(address.port)
+          const authUrl = oauthClient.generateAuthUrl({
+            redirect_uri: redirectUri.toString(),
+            access_type: 'offline',
+            prompt: 'consent',
+            scope: GOOGLE_SCOPES
+          })
 
-      await shell.openExternal(authUrl)
+          await shell.openExternal(authUrl)
+        } catch (error) {
+          const message =
+            error instanceof Error
+              ? `認証ページをブラウザで開けませんでした: ${error.message}`
+              : '認証ページをブラウザで開けませんでした'
+          reject(new Error(message))
+          server.close()
+        }
+      })()
     })
   })
 }

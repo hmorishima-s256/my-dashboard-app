@@ -21,6 +21,12 @@ export const useAuthController = (): UseAuthControllerResult => {
   const [isAuthProcessing, setIsAuthProcessing] = useState(false)
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false)
 
+  // 認証失敗時に無反応に見えないよう、メッセージを表示する
+  const showAuthError = (message: string): void => {
+    console.error(message)
+    window.alert(message)
+  }
+
   const loadCurrentUser = useCallback(async (): Promise<UserProfile | null> => {
     const user = await window.api.authGetCurrentUser()
     setCurrentUser(user)
@@ -34,14 +40,18 @@ export const useAuthController = (): UseAuthControllerResult => {
     setIsAuthProcessing(true)
     try {
       const result: AuthLoginResult = await window.api.authLogin()
-      if (!result.success || !result.user) return
+      if (!result.success || !result.user) {
+        showAuthError(result.message || 'Googleログインに失敗しました。')
+        return
+      }
       setCurrentUser(result.user)
       setIsProfileMenuOpen(false)
       if (onAfterLogin) {
         await onAfterLogin(result.user)
       }
     } catch (error) {
-      console.error('Failed to login:', error)
+      const message = error instanceof Error ? error.message : 'Googleログインに失敗しました。'
+      showAuthError(message)
     } finally {
       setIsAuthProcessing(false)
     }
