@@ -22,7 +22,21 @@
   "postCreateCommand": "npm install",
   "customizations": {
     "vscode": {
-      "extensions": ["dbaeumer.vscode-eslint", "esbenp.prettier-vscode"]
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "github.vscode-pull-request-github",
+        "github.vscode-github-actions",
+        "redhat.vscode-yaml",
+        "davidanson.vscode-markdownlint",
+        "yzhang.markdown-all-in-one",
+        "streetsidesoftware.code-spell-checker",
+        "christian-kohler.path-intellisense",
+        "EditorConfig.EditorConfig",
+        "vitest.explorer",
+        "openai.chatgpt",
+        "mhutchie.git-graph"
+      ]
     }
   },
   "forwardPorts": [5173, 6080],
