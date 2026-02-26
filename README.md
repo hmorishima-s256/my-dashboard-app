@@ -37,6 +37,30 @@ The dev container uses named volumes so the following data survives container re
 - VS Code remote extensions cache (`/root/.vscode-server/extensions`)
 - VS Code remote user data (`/root/.vscode-server/data/User`)
 
+### Standard VS Code extensions in Dev Container
+
+The dev container defines the team-standard extension set in `.devcontainer/devcontainer.json` (`customizations.vscode.extensions`).
+
+- `dbaeumer.vscode-eslint`
+- `esbenp.prettier-vscode`
+- `github.vscode-pull-request-github`
+- `github.vscode-github-actions`
+- `redhat.vscode-yaml`
+- `davidanson.vscode-markdownlint`
+- `yzhang.markdown-all-in-one`
+- `streetsidesoftware.code-spell-checker`
+- `christian-kohler.path-intellisense`
+- `EditorConfig.EditorConfig`
+- `vitest.explorer`
+- `openai.chatgpt`
+- `mhutchie.git-graph`
+
+Operational notes:
+
+- At first build/rebuild, extension synchronization can take time depending on network speed.
+- When named volumes are preserved, rebuild typically does not require re-downloading these extensions.
+- If volumes are deleted, extensions and auth-related caches are downloaded/created again.
+
 On first launch, authenticate once as needed:
 
 ```bash
