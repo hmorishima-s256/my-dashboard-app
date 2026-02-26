@@ -8,6 +8,10 @@ permissions:
   contents: read
   issues: write
 
+concurrency:
+  group: subissue-plan-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
 jobs:
   generate-plan:
     if: contains(github.event.issue.labels.*.name, 'epic')
@@ -25,11 +29,21 @@ jobs:
             const body = issue.body || ''
             const marker = '<!-- subissue-plan-generated:v1 -->'
 
-            const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
             const extractSection = (label) => {
-              const re = new RegExp(`###\\s+${escapeRegex(label)}\\s*\\n([\\s\\S]*?)(?=\\n###\\s+|$)`, 'm')
-              const m = body.match(re)
-              return m ? m[1].trim() : ''
+              const normalizedBody = body.replace(/\r\n/g, '\n')
+              const lines = normalizedBody.split('\n')
+              const headingIndex = lines.findIndex((line) => {
+                const matched = /^###\s+(.+?)\s*$/.exec(line)
+                return matched ? matched[1].trim() === label : false
+              })
+              if (headingIndex < 0) return ''
+
+              const sectionLines = []
+              for (let index = headingIndex + 1; index < lines.length; index += 1) {
+                if (/^###\s+/.test(lines[index])) break
+                sectionLines.push(lines[index])
+              }
+              return sectionLines.join('\n').trim()
             }
 
             const parseOwnerCandidates = () => {
@@ -68,7 +82,8 @@ jobs:
               if (!section) return []
               return section
                 .split('\n')
-                .map((line) => line.trim())
+                .map((line) => line.replace(/\r$/, ''))
+                // ネストした箇条書きは除外し、最上位の受け入れ条件だけを候補化する
                 .filter((line) => /^[-*]\s+/.test(line))
                 .map((line) => line.replace(/^[-*]\s+/, '').replace(/^\[[ xX]\]\s+/, '').trim())
                 .filter(Boolean)
