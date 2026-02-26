@@ -25,6 +25,25 @@ Dev Containers: Reopen in Container
 ```
 
 After the container starts, dependencies are installed automatically by `postCreateCommand`.
+`gh` (GitHub CLI) is also preinstalled in the dev container image.
+
+### Persistent data in Dev Container
+
+The dev container uses named volumes so the following data survives container rebuilds:
+
+- `node_modules`
+- GitHub CLI auth config (`/root/.config/gh`)
+- Codex auth/work data (`/root/.codex`)
+- VS Code remote extensions cache (`/root/.vscode-server/extensions`)
+- VS Code remote user data (`/root/.vscode-server/data/User`)
+
+On first launch, authenticate once as needed:
+
+```bash
+gh auth login
+```
+
+If tokens expire (for example, GitHub PAT expiry), re-authentication is required.
 
 ### Run app in container
 

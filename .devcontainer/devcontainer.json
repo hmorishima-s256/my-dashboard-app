@@ -13,7 +13,11 @@
     }
   },
   "mounts": [
-    "source=${localWorkspaceFolderBasename}-node_modules,target=${containerWorkspaceFolder}/node_modules,type=volume"
+    "source=${localWorkspaceFolderBasename}-node_modules,target=${containerWorkspaceFolder}/node_modules,type=volume",
+    "source=${localWorkspaceFolderBasename}-gh-config,target=/root/.config/gh,type=volume",
+    "source=${localWorkspaceFolderBasename}-codex-home,target=/root/.codex,type=volume",
+    "source=${localWorkspaceFolderBasename}-vscode-server-extensions,target=/root/.vscode-server/extensions,type=volume",
+    "source=${localWorkspaceFolderBasename}-vscode-server-userdata,target=/root/.vscode-server/data/User,type=volume"
   ],
   "postCreateCommand": "npm install",
   "customizations": {
