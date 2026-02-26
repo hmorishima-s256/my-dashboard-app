@@ -254,9 +254,7 @@ const resolveCredentialsPath = async (): Promise<string> => {
     }
   }
 
-  throw new Error(
-    `credentials.json が見つかりません。確認先: ${candidates.join(', ')}`
-  )
+  throw new Error(`credentials.json が見つかりません。確認先: ${candidates.join(', ')}`)
 }
 
 // credentials.json から OAuth クライアント情報を読み込む
