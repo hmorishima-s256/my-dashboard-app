@@ -7,9 +7,22 @@ out
 /.vscode/
 .codex
 
-# Google API Credentials
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Local secret files (never commit)
 credentials.json
 token.json
 client_secret.json
 service_account.json
 key.pem
+*.key
+*.pem
+*.p12
+*.pfx
+
+# Optional local-only directories
+.local/
+secrets/

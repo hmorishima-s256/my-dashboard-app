@@ -228,17 +228,20 @@ const collectCredentialCandidates = (): string[] => {
     }
   }
 
+  // 優先順:
+  // 1) 明示指定環境変数
+  // 2) ホーム配下の共有設定ディレクトリ（推奨運用）
+  // 3) 既存運用との互換のための探索（cwd/execPath/resources の親）
   if (process.env[CREDENTIALS_PATH_ENV]) {
     candidates.push(path.resolve(process.env[CREDENTIALS_PATH_ENV]))
   }
+  candidates.push(path.join(APP_SHARED_CONFIG_DIR, CREDENTIALS_FILE_NAME))
 
   appendWithParents(process.cwd(), 4)
   appendWithParents(path.dirname(process.execPath), 3)
   if (typeof resourcesPath === 'string' && resourcesPath.length > 0) {
     appendWithParents(resourcesPath, 2)
   }
-
-  candidates.push(path.join(APP_SHARED_CONFIG_DIR, CREDENTIALS_FILE_NAME))
   return [...new Set(candidates.map((candidate) => path.resolve(candidate)))]
 }
 

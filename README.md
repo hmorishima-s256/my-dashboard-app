@@ -79,6 +79,27 @@ Electron GUI is available through the forwarded Desktop (noVNC) port `6080`.
 Open the forwarded `6080` URL in your browser to see the container desktop.
 For Windows installers, run `npm run build:win` on the Windows host instead of inside the Linux container.
 
+## Credentials and Secret Files
+
+Policy:
+
+- Secret files are managed **outside this repository**.
+- Preferred location for Google OAuth credentials is `~/my-dashboard-app/_shared/credentials.json`.
+- You can override the credentials file path with `MY_DASHBOARD_CREDENTIALS_PATH`.
+- Legacy fallback search (project root or parent paths) is kept for compatibility, but not recommended for team operation.
+
+Current env usage:
+
+- `.env` is not required for this project at this time.
+- If needed in the future, use `.env.example` for shared keys and keep real `.env*` files local-only.
+
+Tracking safety checks:
+
+```bash
+git status --short --ignored
+git ls-files | rg -n "credentials\\.json|token\\.json|client_secret|service_account|\\.env" -S
+```
+
 ## Project Setup
 
 ### Install
