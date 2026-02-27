@@ -51,7 +51,8 @@ export const createDependencies = (): DependencyBundle => {
       projectTitles: {}
     })),
     taskGetMonthlyProjectActuals: vi.fn(async (month: string) => ({
-      month,
+      period: month,
+      periodUnit: /^\d{4}$/.test(month) ? 'year' : 'month',
       projectActuals: [],
       categoryActuals: [],
       titleActuals: []

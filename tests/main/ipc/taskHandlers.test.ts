@@ -46,7 +46,7 @@ describe('taskHandlers', () => {
     expect(dependencies.taskGetAll).toHaveBeenCalledWith('2026-02-17')
   })
 
-  it('task:get-monthly-project-actuals は不正年月時に当月キーへフォールバックする', async () => {
+  it('task:get-monthly-project-actuals は不正期間時に当月キーへフォールバックする', async () => {
     const { dependencies } = createDependencies()
     registerTaskHandlers(dependencies)
     const handler = getRegisteredHandler('task:get-monthly-project-actuals')
@@ -56,6 +56,9 @@ describe('taskHandlers', () => {
 
     await handler({}, 'guest', '2026-01')
     expect(dependencies.taskGetMonthlyProjectActuals).toHaveBeenCalledWith('2026-01')
+
+    await handler({}, 'guest', '2026')
+    expect(dependencies.taskGetMonthlyProjectActuals).toHaveBeenCalledWith('2026')
   })
 
   it('task:add / task:update / task:delete を委譲する', async () => {

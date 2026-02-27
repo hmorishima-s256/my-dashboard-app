@@ -29,7 +29,7 @@ type TaskStoreServiceDependencies = {
 
 type TaskStoreService = {
   getAll: (date: string) => Promise<TaskListResponse>
-  getMonthlyProjectActuals: (month: string) => Promise<TaskMonthlyProjectActualsResponse>
+  getMonthlyProjectActuals: (period: string) => Promise<TaskMonthlyProjectActualsResponse>
   add: (input: TaskCreateInput) => Promise<Task>
   update: (task: Task) => Promise<Task | null>
   remove: (taskId: string) => Promise<boolean>
@@ -38,6 +38,7 @@ type TaskStoreService = {
 
 const TASK_FILE_NAME = 'tasks.json'
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
+const YEAR_PATTERN = /^\d{4}$/
 const MONTH_PATTERN = /^\d{4}-\d{2}$/
 const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/
 const TASK_STATUS_SET: Set<TaskStatus> = new Set([
@@ -65,11 +66,14 @@ const normalizeDate = (value: string): string => {
   return value
 }
 
-const normalizeMonth = (value: string): string => {
-  if (!MONTH_PATTERN.test(value)) {
-    throw new Error(`Invalid task month: ${value}`)
+const normalizePeriod = (value: string): { period: string; periodUnit: 'month' | 'year' } => {
+  if (MONTH_PATTERN.test(value)) {
+    return { period: value, periodUnit: 'month' }
   }
-  return value
+  if (YEAR_PATTERN.test(value)) {
+    return { period: value, periodUnit: 'year' }
+  }
+  throw new Error(`Invalid task period: ${value}`)
 }
 
 const normalizeTimeValue = (value: string | null | undefined): string | null => {
@@ -252,14 +256,15 @@ const buildTaskListResponse = (schema: TaskSchema, date: string): TaskListRespon
 
 const buildMonthlyProjectActualsResponse = (
   schema: TaskSchema,
-  month: string
+  period: string,
+  periodUnit: 'month' | 'year'
 ): TaskMonthlyProjectActualsResponse => {
   const projectSummaryMap = new Map<string, { actualMinutes: number; estimatedMinutes: number }>()
   const categorySummaryMap = new Map<string, { actualMinutes: number; estimatedMinutes: number }>()
   const titleSummaryMap = new Map<string, { actualMinutes: number; estimatedMinutes: number }>()
-  const monthPrefix = `${month}-`
+  const periodPrefix = `${period}-`
   schema.tasks.forEach((task) => {
-    if (!task.date.startsWith(monthPrefix)) return
+    if (!task.date.startsWith(periodPrefix)) return
     const projectName = normalizeText(task.project)
     if (!projectName) return
     const categoryName = normalizeText(task.category) || '-'
@@ -338,7 +343,8 @@ const buildMonthlyProjectActualsResponse = (
     })
 
   return {
-    month,
+    period,
+    periodUnit,
     projectActuals,
     categoryActuals,
     titleActuals
@@ -404,12 +410,16 @@ export const createTaskStoreService = (
   }
 
   const getMonthlyProjectActuals = async (
-    month: string
+    period: string
   ): Promise<TaskMonthlyProjectActualsResponse> => {
     const userId = resolveUserId()
-    const normalizedMonth = normalizeMonth(month)
+    const normalizedPeriod = normalizePeriod(period)
     const { db } = await getLoadedSchema(userId)
-    return buildMonthlyProjectActualsResponse(db.data, normalizedMonth)
+    return buildMonthlyProjectActualsResponse(
+      db.data,
+      normalizedPeriod.period,
+      normalizedPeriod.periodUnit
+    )
   }
 
   const add = async (input: TaskCreateInput): Promise<Task> => {
