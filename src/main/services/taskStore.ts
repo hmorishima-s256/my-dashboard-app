@@ -7,10 +7,12 @@ import { JSONFile } from 'lowdb/node'
 import { getUserSettingsDir } from '../googleAuth'
 import { GUEST_USER_ID } from '../../shared/contracts'
 import type {
+  ProjectMonthlyActual,
   Task,
   TaskActualLog,
   TaskCreateInput,
   TaskListResponse,
+  TaskMonthlyProjectActualsResponse,
   TaskPriority,
   TaskSchema,
   TaskStatus,
@@ -25,6 +27,7 @@ type TaskStoreServiceDependencies = {
 
 type TaskStoreService = {
   getAll: (date: string) => Promise<TaskListResponse>
+  getMonthlyProjectActuals: (month: string) => Promise<TaskMonthlyProjectActualsResponse>
   add: (input: TaskCreateInput) => Promise<Task>
   update: (task: Task) => Promise<Task | null>
   remove: (taskId: string) => Promise<boolean>
@@ -33,6 +36,7 @@ type TaskStoreService = {
 
 const TASK_FILE_NAME = 'tasks.json'
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
+const MONTH_PATTERN = /^\d{4}-\d{2}$/
 const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/
 const TASK_STATUS_SET: Set<TaskStatus> = new Set([
   'todo',
@@ -55,6 +59,13 @@ const normalizeText = (value: string): string => value.trim()
 const normalizeDate = (value: string): string => {
   if (!DATE_PATTERN.test(value)) {
     throw new Error(`Invalid task date: ${value}`)
+  }
+  return value
+}
+
+const normalizeMonth = (value: string): string => {
+  if (!MONTH_PATTERN.test(value)) {
+    throw new Error(`Invalid task month: ${value}`)
   }
   return value
 }
@@ -237,6 +248,32 @@ const buildTaskListResponse = (schema: TaskSchema, date: string): TaskListRespon
   }
 }
 
+const buildMonthlyProjectActualsResponse = (
+  schema: TaskSchema,
+  month: string
+): TaskMonthlyProjectActualsResponse => {
+  const projectActualMap = new Map<string, number>()
+  const monthPrefix = `${month}-`
+  schema.tasks.forEach((task) => {
+    if (!task.date.startsWith(monthPrefix)) return
+    const projectName = normalizeText(task.project)
+    if (!projectName) return
+    projectActualMap.set(
+      projectName,
+      (projectActualMap.get(projectName) ?? 0) + task.actual.minutes
+    )
+  })
+
+  const projectActuals: ProjectMonthlyActual[] = Array.from(projectActualMap.entries())
+    .map(([project, actualMinutes]) => ({ project, actualMinutes }))
+    .sort((a, b) => a.project.localeCompare(b.project, 'ja'))
+
+  return {
+    month,
+    projectActuals
+  }
+}
+
 // lowdb を利用したタスク保存サービス（ログインユーザーは永続、ゲストはセッション限定）
 export const createTaskStoreService = (
   dependencies: TaskStoreServiceDependencies
@@ -293,6 +330,15 @@ export const createTaskStoreService = (
     const normalizedDate = normalizeDate(date)
     const { db } = await getLoadedSchema(userId)
     return buildTaskListResponse(db.data, normalizedDate)
+  }
+
+  const getMonthlyProjectActuals = async (
+    month: string
+  ): Promise<TaskMonthlyProjectActualsResponse> => {
+    const userId = resolveUserId()
+    const normalizedMonth = normalizeMonth(month)
+    const { db } = await getLoadedSchema(userId)
+    return buildMonthlyProjectActualsResponse(db.data, normalizedMonth)
   }
 
   const add = async (input: TaskCreateInput): Promise<Task> => {
@@ -374,6 +420,7 @@ export const createTaskStoreService = (
 
   return {
     getAll,
+    getMonthlyProjectActuals,
     add,
     update,
     remove,

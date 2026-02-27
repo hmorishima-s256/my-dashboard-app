@@ -17,6 +17,7 @@ import { GUEST_USER_ID } from '../types/ui'
 import type {
   Task,
   TaskCreateInput,
+  TaskMonthlyProjectActualsResponse,
   TaskPriority,
   TaskStatus,
   TaskTimeDisplayMode,
@@ -194,6 +195,9 @@ export const TaskBoard = ({
   const [projectMaster, setProjectMaster] = useState<string[]>([])
   const [projectCategoryMap, setProjectCategoryMap] = useState<Record<string, string[]>>({})
   const [projectTitleMap, setProjectTitleMap] = useState<Record<string, string[]>>({})
+  const [monthlyProjectActuals, setMonthlyProjectActuals] = useState<
+    TaskMonthlyProjectActualsResponse['projectActuals']
+  >([])
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
@@ -224,6 +228,7 @@ export const TaskBoard = ({
 
   const currentUserId = currentUser?.email ?? GUEST_USER_ID
   const isGuest = currentUserId === GUEST_USER_ID
+  const selectedMonth = selectedDate.slice(0, 7)
 
   const projectOptions = useMemo(() => buildOptionList(projectMaster), [projectMaster])
   const categoryOptions = useMemo(
@@ -267,18 +272,22 @@ export const TaskBoard = ({
     setIsLoading(true)
     setErrorMessage('')
     try {
-      const response = await window.api.taskGetAll(currentUserId, selectedDate)
-      setTasks(response.tasks)
-      setProjectMaster(response.projects)
-      setProjectCategoryMap(response.projectCategories)
-      setProjectTitleMap(response.projectTitles)
+      const [taskResponse, monthlySummaryResponse] = await Promise.all([
+        window.api.taskGetAll(currentUserId, selectedDate),
+        window.api.taskGetMonthlyProjectActuals(currentUserId, selectedMonth)
+      ])
+      setTasks(taskResponse.tasks)
+      setProjectMaster(taskResponse.projects)
+      setProjectCategoryMap(taskResponse.projectCategories)
+      setProjectTitleMap(taskResponse.projectTitles)
+      setMonthlyProjectActuals(monthlySummaryResponse.projectActuals)
     } catch (error) {
       console.error('Failed to load tasks:', error)
       setErrorMessage('タスクの読込に失敗しました。')
     } finally {
       setIsLoading(false)
     }
-  }, [currentUserId, selectedDate])
+  }, [currentUserId, selectedDate, selectedMonth])
 
   useEffect(() => {
     void loadTaskData()
@@ -702,6 +711,24 @@ export const TaskBoard = ({
           </button>
         </div>
         {errorMessage ? <p className="task-inline-error">{errorMessage}</p> : null}
+        <section className="task-monthly-summary">
+          <div className="task-monthly-summary-header">
+            <h4>案件別実績（{selectedMonth}）</h4>
+          </div>
+          <div className="task-monthly-summary-list">
+            {monthlyProjectActuals.map((projectActual) => (
+              <div key={projectActual.project} className="task-monthly-summary-item">
+                <span className="task-monthly-summary-project">{projectActual.project}</span>
+                <span className="task-monthly-summary-minutes">
+                  {projectActual.actualMinutes} 分
+                </span>
+              </div>
+            ))}
+            {monthlyProjectActuals.length === 0 && !isLoading ? (
+              <p className="task-monthly-summary-empty">対象月の実績タスクはありません。</p>
+            ) : null}
+          </div>
+        </section>
         <div className="task-table-scroll">
           <table>
             <thead>

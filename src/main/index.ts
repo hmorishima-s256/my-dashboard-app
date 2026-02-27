@@ -216,6 +216,7 @@ app.whenReady().then(async () => {
     ensureMainWindowVisible,
     buildDateKey,
     taskGetAll: taskStoreService.getAll,
+    taskGetMonthlyProjectActuals: taskStoreService.getMonthlyProjectActuals,
     taskAdd: taskStoreService.add,
     taskUpdate: taskStoreService.update,
     taskDelete: taskStoreService.remove

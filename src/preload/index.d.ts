@@ -8,6 +8,7 @@ import type {
   Task,
   TaskCreateInput,
   TaskListResponse,
+  TaskMonthlyProjectActualsResponse,
   UserProfile
 } from '../shared/contracts'
 
@@ -23,6 +24,10 @@ declare global {
       getSettings: () => Promise<AppSettings>
       saveSettings: (settings: AppSettings) => Promise<AppSettings>
       taskGetAll: (userId: string, targetDate: string) => Promise<TaskListResponse>
+      taskGetMonthlyProjectActuals: (
+        userId: string,
+        targetMonth: string
+      ) => Promise<TaskMonthlyProjectActualsResponse>
       taskAdd: (taskInput: TaskCreateInput) => Promise<Task>
       taskUpdate: (task: Task) => Promise<Task | null>
       taskDelete: (taskId: string) => Promise<boolean>
