@@ -157,6 +157,57 @@ describe('taskStoreService', () => {
     })
   })
 
+  it('登録・ステータス更新・削除を連続操作しても整合性を保つ', async () => {
+    const rootPath = await createTempRoot()
+    const { createTaskStoreService } = await loadTaskStoreModule(rootPath)
+    const user: UserProfile = { name: 'Test', email: 'regression@example.com', iconUrl: '' }
+    let idCounter = 0
+    let now = new Date('2026-02-18T00:00:00.000Z')
+
+    const taskStore = createTaskStoreService({
+      getCurrentUser: () => user,
+      createId: () => `task-regression-${idCounter++}`,
+      getNow: () => now
+    })
+
+    const taskA = await taskStore.add(
+      createTaskInput({
+        title: '回帰確認A'
+      })
+    )
+    now = new Date('2026-02-18T00:00:01.000Z')
+    const taskB = await taskStore.add(
+      createTaskInput({
+        title: '回帰確認B'
+      })
+    )
+
+    // createdAt 昇順で取得されること（既存挙動）
+    const initial = await taskStore.getAll('2026-02-18')
+    expect(initial.tasks.map((task) => task.id)).toEqual([taskA.id, taskB.id])
+    expect(initial.tasks.map((task) => task.status)).toEqual(['todo', 'todo'])
+
+    now = new Date('2026-02-18T00:01:00.000Z')
+    const updatedTaskA = await taskStore.update({ ...taskA, status: 'doing' })
+    expect(updatedTaskA?.status).toBe('doing')
+
+    now = new Date('2026-02-18T00:02:00.000Z')
+    const updatedTaskB = await taskStore.update({ ...taskB, status: 'done' })
+    expect(updatedTaskB?.status).toBe('done')
+
+    const afterStatusUpdate = await taskStore.getAll('2026-02-18')
+    expect(afterStatusUpdate.tasks).toMatchObject([
+      { id: taskA.id, status: 'doing' },
+      { id: taskB.id, status: 'done' }
+    ])
+
+    await expect(taskStore.remove(taskA.id)).resolves.toBe(true)
+    const afterDelete = await taskStore.getAll('2026-02-18')
+    expect(afterDelete.tasks).toHaveLength(1)
+    expect(afterDelete.tasks[0].id).toBe(taskB.id)
+    expect(afterDelete.tasks[0].status).toBe('done')
+  })
+
   it('ゲストユーザーはアプリ終了時クリアを想定した削除処理ができる', async () => {
     const rootPath = await createTempRoot()
     const { createTaskStoreService } = await loadTaskStoreModule(rootPath)
