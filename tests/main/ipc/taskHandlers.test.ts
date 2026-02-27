@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Task, TaskCreateInput } from '../../../src/shared/contracts'
+import type {
+  Task,
+  TaskCreateInput,
+  TaskMonthlyProjectActualsResponse
+} from '../../../src/shared/contracts'
 import { createDependencies } from './handlerTestUtils'
 
 type RegisteredHandler = (...args: unknown[]) => Promise<unknown>
@@ -44,6 +48,41 @@ describe('taskHandlers', () => {
 
     await handler({}, 'guest', '2026-02-17')
     expect(dependencies.taskGetAll).toHaveBeenCalledWith('2026-02-17')
+  })
+
+  it('task:get-monthly-project-actuals は不正期間時に当月キーへフォールバックする', async () => {
+    const { dependencies } = createDependencies()
+    registerTaskHandlers(dependencies)
+    const handler = getRegisteredHandler('task:get-monthly-project-actuals')
+
+    await handler({}, 'guest', 'invalid-month')
+    expect(dependencies.taskGetMonthlyProjectActuals).toHaveBeenCalledWith('2026-02')
+
+    await handler({}, 'guest', '2026-01')
+    expect(dependencies.taskGetMonthlyProjectActuals).toHaveBeenCalledWith('2026-01')
+
+    await handler({}, 'guest', '2026')
+    expect(dependencies.taskGetMonthlyProjectActuals).toHaveBeenCalledWith('2026')
+  })
+
+  it('task:get-monthly-project-actuals は対象期間の案件別実績を返却する', async () => {
+    const { dependencies } = createDependencies()
+    const summaryResponse: TaskMonthlyProjectActualsResponse = {
+      period: '2026-02',
+      periodUnit: 'month',
+      projectActuals: [
+        { project: '案件A', actualMinutes: 120, estimatedMinutes: 90 },
+        { project: '案件B', actualMinutes: 45, estimatedMinutes: 60 }
+      ],
+      categoryActuals: [],
+      titleActuals: []
+    }
+    dependencies.taskGetMonthlyProjectActuals.mockResolvedValue(summaryResponse)
+    registerTaskHandlers(dependencies)
+    const handler = getRegisteredHandler('task:get-monthly-project-actuals')
+
+    await expect(handler({}, 'guest', '2026-02')).resolves.toEqual(summaryResponse)
+    expect(dependencies.taskGetMonthlyProjectActuals).toHaveBeenCalledWith('2026-02')
   })
 
   it('task:add / task:update / task:delete を委譲する', async () => {

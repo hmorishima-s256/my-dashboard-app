@@ -2,6 +2,25 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import CreatableSelect from 'react-select/creatable'
 import type { SingleValue, StylesConfig } from 'react-select'
 import {
+  ALL_TASK_PRIORITY_FILTER,
+  ALL_TASK_STATUS_FILTER,
+  filterMonthlyCategoryActuals,
+  filterMonthlyProjectActuals,
+  filterMonthlyTitleActuals,
+  filterTasks,
+  normalizeSearchKeyword,
+  parseFilterMinutesText,
+  sortMonthlyProjectActuals,
+  sortTasks
+} from '../lib/taskBoardSearchSort'
+import type {
+  MonthlySummarySortKey,
+  SortDirection,
+  TaskPriorityFilter,
+  TaskStatusFilter,
+  TaskTableSortKey
+} from '../lib/taskBoardSearchSort'
+import {
   calculateActualDurationMinutes,
   calculateDurationMinutes,
   calculateEndTime,
@@ -17,6 +36,7 @@ import { GUEST_USER_ID } from '../types/ui'
 import type {
   Task,
   TaskCreateInput,
+  TaskMonthlyProjectActualsResponse,
   TaskPriority,
   TaskStatus,
   TaskTimeDisplayMode,
@@ -37,6 +57,7 @@ type SelectOption = {
 
 type DurationUnit = 'hourMinute' | 'decimalHours' | 'minutes'
 type TaskModalMode = 'create' | 'edit'
+type SummaryPeriodUnit = 'month' | 'year'
 
 const STATUS_OPTIONS: Array<{ value: TaskStatus; label: string }> = [
   { value: 'todo', label: '未着手' },
@@ -48,6 +69,8 @@ const STATUS_OPTIONS: Array<{ value: TaskStatus; label: string }> = [
 ]
 
 const PRIORITY_OPTIONS: TaskPriority[] = ['緊急', '高', '中', '低']
+const MONTH_PATTERN = /^\d{4}-\d{2}$/
+const YEAR_PATTERN = /^\d{4}$/
 
 const selectStyles: StylesConfig<SelectOption, false> = {
   control: (base, state) => ({
@@ -98,7 +121,7 @@ const formatIsoToTime = (iso: string): string => {
 
 const normalizeNumericText = (value: string): string =>
   value
-    .replace(/[０-９]/g, (digit) => String(digit.charCodeAt(0) - 0xfee0))
+    .replace(/[０-９]/g, (digit) => String.fromCharCode(digit.charCodeAt(0) - 0xfee0))
     .replace(/．/g, '.')
     .trim()
 
@@ -194,6 +217,21 @@ export const TaskBoard = ({
   const [projectMaster, setProjectMaster] = useState<string[]>([])
   const [projectCategoryMap, setProjectCategoryMap] = useState<Record<string, string[]>>({})
   const [projectTitleMap, setProjectTitleMap] = useState<Record<string, string[]>>({})
+  const [monthlyProjectActuals, setMonthlyProjectActuals] = useState<
+    TaskMonthlyProjectActualsResponse['projectActuals']
+  >([])
+  const [monthlyCategoryActuals, setMonthlyCategoryActuals] = useState<
+    TaskMonthlyProjectActualsResponse['categoryActuals']
+  >([])
+  const [monthlyTitleActuals, setMonthlyTitleActuals] = useState<
+    TaskMonthlyProjectActualsResponse['titleActuals']
+  >([])
+  const [taskTableSortKey, setTaskTableSortKey] = useState<TaskTableSortKey>('createdAt')
+  const [taskTableSortDirection, setTaskTableSortDirection] = useState<SortDirection>('asc')
+  const [monthlySummarySortKey, setMonthlySummarySortKey] =
+    useState<MonthlySummarySortKey>('project')
+  const [monthlySummarySortDirection, setMonthlySummarySortDirection] =
+    useState<SortDirection>('asc')
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
@@ -224,6 +262,23 @@ export const TaskBoard = ({
 
   const currentUserId = currentUser?.email ?? GUEST_USER_ID
   const isGuest = currentUserId === GUEST_USER_ID
+  const selectedDateYear = selectedDate.slice(0, 4)
+  const selectedDateMonth = selectedDate.slice(0, 7)
+  const [summaryPeriodUnit, setSummaryPeriodUnit] = useState<SummaryPeriodUnit>('month')
+  const [summaryPeriod, setSummaryPeriod] = useState(selectedDateMonth)
+  const [summarySearchKeywordInput, setSummarySearchKeywordInput] = useState('')
+  const [summaryActualMinutesMinInput, setSummaryActualMinutesMinInput] = useState('')
+  const [summaryActualMinutesMaxInput, setSummaryActualMinutesMaxInput] = useState('')
+  const [summaryEstimatedMinutesMinInput, setSummaryEstimatedMinutesMinInput] = useState('')
+  const [summaryEstimatedMinutesMaxInput, setSummaryEstimatedMinutesMaxInput] = useState('')
+  const [taskSearchKeywordInput, setTaskSearchKeywordInput] = useState('')
+  const [taskStatusFilter, setTaskStatusFilter] = useState<TaskStatusFilter>(ALL_TASK_STATUS_FILTER)
+  const [taskPriorityFilter, setTaskPriorityFilter] =
+    useState<TaskPriorityFilter>(ALL_TASK_PRIORITY_FILTER)
+  const [taskEstimatedMinutesMinInput, setTaskEstimatedMinutesMinInput] = useState('')
+  const [taskEstimatedMinutesMaxInput, setTaskEstimatedMinutesMaxInput] = useState('')
+  const [taskActualMinutesMinInput, setTaskActualMinutesMinInput] = useState('')
+  const [taskActualMinutesMaxInput, setTaskActualMinutesMaxInput] = useState('')
 
   const projectOptions = useMemo(() => buildOptionList(projectMaster), [projectMaster])
   const categoryOptions = useMemo(
@@ -233,6 +288,138 @@ export const TaskBoard = ({
   const titleOptions = useMemo(
     () => buildOptionList(project ? (projectTitleMap[project] ?? []) : []),
     [project, projectTitleMap]
+  )
+  const summarySearchKeyword = useMemo(
+    () => normalizeSearchKeyword(summarySearchKeywordInput),
+    [summarySearchKeywordInput]
+  )
+  const summaryActualMinutesMin = useMemo(
+    () => parseFilterMinutesText(summaryActualMinutesMinInput),
+    [summaryActualMinutesMinInput]
+  )
+  const summaryActualMinutesMax = useMemo(
+    () => parseFilterMinutesText(summaryActualMinutesMaxInput),
+    [summaryActualMinutesMaxInput]
+  )
+  const summaryEstimatedMinutesMin = useMemo(
+    () => parseFilterMinutesText(summaryEstimatedMinutesMinInput),
+    [summaryEstimatedMinutesMinInput]
+  )
+  const summaryEstimatedMinutesMax = useMemo(
+    () => parseFilterMinutesText(summaryEstimatedMinutesMaxInput),
+    [summaryEstimatedMinutesMaxInput]
+  )
+  const taskSearchKeyword = useMemo(
+    () => normalizeSearchKeyword(taskSearchKeywordInput),
+    [taskSearchKeywordInput]
+  )
+  const taskEstimatedMinutesMin = useMemo(
+    () => parseFilterMinutesText(taskEstimatedMinutesMinInput),
+    [taskEstimatedMinutesMinInput]
+  )
+  const taskEstimatedMinutesMax = useMemo(
+    () => parseFilterMinutesText(taskEstimatedMinutesMaxInput),
+    [taskEstimatedMinutesMaxInput]
+  )
+  const taskActualMinutesMin = useMemo(
+    () => parseFilterMinutesText(taskActualMinutesMinInput),
+    [taskActualMinutesMinInput]
+  )
+  const taskActualMinutesMax = useMemo(
+    () => parseFilterMinutesText(taskActualMinutesMaxInput),
+    [taskActualMinutesMaxInput]
+  )
+  const filteredMonthlyProjectActuals = useMemo(
+    () =>
+      filterMonthlyProjectActuals(
+        monthlyProjectActuals,
+        summarySearchKeyword,
+        summaryActualMinutesMin,
+        summaryActualMinutesMax,
+        summaryEstimatedMinutesMin,
+        summaryEstimatedMinutesMax
+      ),
+    [
+      monthlyProjectActuals,
+      summarySearchKeyword,
+      summaryActualMinutesMin,
+      summaryActualMinutesMax,
+      summaryEstimatedMinutesMin,
+      summaryEstimatedMinutesMax
+    ]
+  )
+  const filteredMonthlyCategoryActuals = useMemo(
+    () =>
+      filterMonthlyCategoryActuals(
+        monthlyCategoryActuals,
+        summarySearchKeyword,
+        summaryActualMinutesMin,
+        summaryActualMinutesMax,
+        summaryEstimatedMinutesMin,
+        summaryEstimatedMinutesMax
+      ),
+    [
+      monthlyCategoryActuals,
+      summarySearchKeyword,
+      summaryActualMinutesMin,
+      summaryActualMinutesMax,
+      summaryEstimatedMinutesMin,
+      summaryEstimatedMinutesMax
+    ]
+  )
+  const filteredMonthlyTitleActuals = useMemo(
+    () =>
+      filterMonthlyTitleActuals(
+        monthlyTitleActuals,
+        summarySearchKeyword,
+        summaryActualMinutesMin,
+        summaryActualMinutesMax,
+        summaryEstimatedMinutesMin,
+        summaryEstimatedMinutesMax
+      ),
+    [
+      monthlyTitleActuals,
+      summarySearchKeyword,
+      summaryActualMinutesMin,
+      summaryActualMinutesMax,
+      summaryEstimatedMinutesMin,
+      summaryEstimatedMinutesMax
+    ]
+  )
+  const sortedMonthlyProjectActuals = useMemo(
+    () =>
+      sortMonthlyProjectActuals(
+        filteredMonthlyProjectActuals,
+        monthlySummarySortKey,
+        monthlySummarySortDirection
+      ),
+    [filteredMonthlyProjectActuals, monthlySummarySortDirection, monthlySummarySortKey]
+  )
+  const filteredTasks = useMemo(
+    () =>
+      filterTasks(tasks, {
+        keyword: taskSearchKeyword,
+        statusFilter: taskStatusFilter,
+        priorityFilter: taskPriorityFilter,
+        estimatedMin: taskEstimatedMinutesMin,
+        estimatedMax: taskEstimatedMinutesMax,
+        actualMin: taskActualMinutesMin,
+        actualMax: taskActualMinutesMax
+      }),
+    [
+      taskSearchKeyword,
+      tasks,
+      taskStatusFilter,
+      taskPriorityFilter,
+      taskEstimatedMinutesMin,
+      taskEstimatedMinutesMax,
+      taskActualMinutesMin,
+      taskActualMinutesMax
+    ]
+  )
+  const sortedTasks = useMemo(
+    () => sortTasks(filteredTasks, taskTableSortKey, taskTableSortDirection),
+    [filteredTasks, taskTableSortDirection, taskTableSortKey]
   )
 
   const parseDurationMinutes = (value: string, unit: DurationUnit): number => {
@@ -267,22 +454,32 @@ export const TaskBoard = ({
     setIsLoading(true)
     setErrorMessage('')
     try {
-      const response = await window.api.taskGetAll(currentUserId, selectedDate)
-      setTasks(response.tasks)
-      setProjectMaster(response.projects)
-      setProjectCategoryMap(response.projectCategories)
-      setProjectTitleMap(response.projectTitles)
+      const [taskResponse, monthlySummaryResponse] = await Promise.all([
+        window.api.taskGetAll(currentUserId, selectedDate),
+        window.api.taskGetMonthlyProjectActuals(currentUserId, summaryPeriod)
+      ])
+      setTasks(taskResponse.tasks)
+      setProjectMaster(taskResponse.projects)
+      setProjectCategoryMap(taskResponse.projectCategories)
+      setProjectTitleMap(taskResponse.projectTitles)
+      setMonthlyProjectActuals(monthlySummaryResponse.projectActuals)
+      setMonthlyCategoryActuals(monthlySummaryResponse.categoryActuals)
+      setMonthlyTitleActuals(monthlySummaryResponse.titleActuals)
     } catch (error) {
       console.error('Failed to load tasks:', error)
       setErrorMessage('タスクの読込に失敗しました。')
     } finally {
       setIsLoading(false)
     }
-  }, [currentUserId, selectedDate])
+  }, [currentUserId, selectedDate, summaryPeriod])
 
   useEffect(() => {
     void loadTaskData()
   }, [loadTaskData])
+
+  useEffect(() => {
+    setSummaryPeriod(summaryPeriodUnit === 'month' ? selectedDateMonth : selectedDateYear)
+  }, [selectedDateMonth, selectedDateYear, summaryPeriodUnit])
 
   const resetForm = (): void => {
     setProject('')
@@ -686,6 +883,49 @@ export const TaskBoard = ({
     }
   }
 
+  const toggleMonthlySummarySort = (nextSortKey: MonthlySummarySortKey): void => {
+    if (monthlySummarySortKey === nextSortKey) {
+      setMonthlySummarySortDirection((previous) => (previous === 'asc' ? 'desc' : 'asc'))
+      return
+    }
+    setMonthlySummarySortKey(nextSortKey)
+    setMonthlySummarySortDirection('asc')
+  }
+
+  const buildMonthlySummarySortIndicator = (targetSortKey: MonthlySummarySortKey): string => {
+    if (monthlySummarySortKey !== targetSortKey) return '↕'
+    return monthlySummarySortDirection === 'asc' ? '▲' : '▼'
+  }
+
+  const toggleTaskTableSort = (nextSortKey: TaskTableSortKey): void => {
+    if (taskTableSortKey === nextSortKey) {
+      setTaskTableSortDirection((previous) => (previous === 'asc' ? 'desc' : 'asc'))
+      return
+    }
+    setTaskTableSortKey(nextSortKey)
+    setTaskTableSortDirection('asc')
+  }
+
+  const buildTaskTableSortIndicator = (targetSortKey: TaskTableSortKey): string => {
+    if (taskTableSortKey !== targetSortKey) return '↕'
+    return taskTableSortDirection === 'asc' ? '▲' : '▼'
+  }
+
+  const handleChangeSummaryPeriodUnit = (value: SummaryPeriodUnit): void => {
+    setSummaryPeriodUnit(value)
+    setSummaryPeriod(value === 'month' ? selectedDateMonth : selectedDateYear)
+  }
+
+  const handleChangeSummaryPeriod = (value: string): void => {
+    if (summaryPeriodUnit === 'month') {
+      if (!MONTH_PATTERN.test(value)) return
+      setSummaryPeriod(value)
+      return
+    }
+    if (!YEAR_PATTERN.test(value)) return
+    setSummaryPeriod(value)
+  }
+
   return (
     <main className="task-board">
       <section className="task-table-card">
@@ -697,26 +937,408 @@ export const TaskBoard = ({
               <span className="task-form-guest-tag">ゲストモード（終了時に消えます）</span>
             ) : null}
           </div>
-          <button className="task-open-modal-button" type="button" onClick={openCreateModal}>
-            タスク登録
-          </button>
+          <div className="task-table-header-actions">
+            <input
+              className="task-table-search-input"
+              type="search"
+              value={taskSearchKeywordInput}
+              onChange={(event) => setTaskSearchKeywordInput(event.target.value)}
+              placeholder="案件/カテゴリ/タスクで検索"
+            />
+            <button className="task-open-modal-button" type="button" onClick={openCreateModal}>
+              タスク登録
+            </button>
+          </div>
+        </div>
+        <div className="task-table-filter-row">
+          <label htmlFor="task-filter-status">ステータス</label>
+          <select
+            id="task-filter-status"
+            className="task-filter-select"
+            value={taskStatusFilter}
+            onChange={(event) => setTaskStatusFilter(event.target.value as TaskStatusFilter)}
+          >
+            <option value={ALL_TASK_STATUS_FILTER}>すべて</option>
+            {STATUS_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <label htmlFor="task-filter-priority">優先度</label>
+          <select
+            id="task-filter-priority"
+            className="task-filter-select"
+            value={taskPriorityFilter}
+            onChange={(event) => setTaskPriorityFilter(event.target.value as TaskPriorityFilter)}
+          >
+            <option value={ALL_TASK_PRIORITY_FILTER}>すべて</option>
+            {PRIORITY_OPTIONS.map((priorityOption) => (
+              <option key={priorityOption} value={priorityOption}>
+                {priorityOption}
+              </option>
+            ))}
+          </select>
+          <label htmlFor="task-filter-estimated-min">見積（分）</label>
+          <input
+            id="task-filter-estimated-min"
+            className="task-filter-number-input"
+            type="number"
+            inputMode="numeric"
+            min="0"
+            step="1"
+            value={taskEstimatedMinutesMinInput}
+            onChange={(event) => setTaskEstimatedMinutesMinInput(event.target.value)}
+            placeholder="最小"
+          />
+          <span className="task-filter-range-separator">-</span>
+          <input
+            className="task-filter-number-input"
+            type="number"
+            inputMode="numeric"
+            min="0"
+            step="1"
+            value={taskEstimatedMinutesMaxInput}
+            onChange={(event) => setTaskEstimatedMinutesMaxInput(event.target.value)}
+            placeholder="最大"
+          />
+          <label htmlFor="task-filter-actual-min">実績（分）</label>
+          <input
+            id="task-filter-actual-min"
+            className="task-filter-number-input"
+            type="number"
+            inputMode="numeric"
+            min="0"
+            step="1"
+            value={taskActualMinutesMinInput}
+            onChange={(event) => setTaskActualMinutesMinInput(event.target.value)}
+            placeholder="最小"
+          />
+          <span className="task-filter-range-separator">-</span>
+          <input
+            className="task-filter-number-input"
+            type="number"
+            inputMode="numeric"
+            min="0"
+            step="1"
+            value={taskActualMinutesMaxInput}
+            onChange={(event) => setTaskActualMinutesMaxInput(event.target.value)}
+            placeholder="最大"
+          />
         </div>
         {errorMessage ? <p className="task-inline-error">{errorMessage}</p> : null}
+        <section className="task-monthly-summary">
+          <div className="task-monthly-summary-header">
+            <h4>
+              {summaryPeriodUnit === 'month' ? '案件別実績（月次）' : '案件別実績（年次）'}（
+              {summaryPeriod}）
+            </h4>
+            <div className="task-monthly-summary-controls">
+              <label htmlFor="task-monthly-summary-unit">単位</label>
+              <select
+                id="task-monthly-summary-unit"
+                className="task-monthly-summary-unit-select"
+                value={summaryPeriodUnit}
+                onChange={(event) =>
+                  handleChangeSummaryPeriodUnit(event.target.value as SummaryPeriodUnit)
+                }
+              >
+                <option value="month">月次</option>
+                <option value="year">年次</option>
+              </select>
+              {summaryPeriodUnit === 'month' ? (
+                <>
+                  <label htmlFor="task-monthly-summary-period-month">対象月</label>
+                  <input
+                    id="task-monthly-summary-period-month"
+                    className="task-monthly-summary-month-input"
+                    type="month"
+                    value={summaryPeriod}
+                    onChange={(event) => handleChangeSummaryPeriod(event.target.value)}
+                  />
+                </>
+              ) : (
+                <>
+                  <label htmlFor="task-monthly-summary-period-year">対象年</label>
+                  <input
+                    id="task-monthly-summary-period-year"
+                    className="task-monthly-summary-year-input"
+                    type="number"
+                    inputMode="numeric"
+                    min="2000"
+                    max="9999"
+                    step="1"
+                    value={summaryPeriod}
+                    onChange={(event) => handleChangeSummaryPeriod(event.target.value)}
+                  />
+                </>
+              )}
+              <label htmlFor="task-monthly-summary-search">検索</label>
+              <input
+                id="task-monthly-summary-search"
+                className="task-summary-search-input"
+                type="search"
+                value={summarySearchKeywordInput}
+                onChange={(event) => setSummarySearchKeywordInput(event.target.value)}
+                placeholder="案件/カテゴリ/タスクで検索"
+              />
+              <label htmlFor="task-monthly-summary-actual-min">実績（分）</label>
+              <input
+                id="task-monthly-summary-actual-min"
+                className="task-monthly-summary-number-input"
+                type="number"
+                inputMode="numeric"
+                min="0"
+                step="1"
+                value={summaryActualMinutesMinInput}
+                onChange={(event) => setSummaryActualMinutesMinInput(event.target.value)}
+                placeholder="最小"
+              />
+              <span className="task-filter-range-separator">-</span>
+              <input
+                className="task-monthly-summary-number-input"
+                type="number"
+                inputMode="numeric"
+                min="0"
+                step="1"
+                value={summaryActualMinutesMaxInput}
+                onChange={(event) => setSummaryActualMinutesMaxInput(event.target.value)}
+                placeholder="最大"
+              />
+              <label htmlFor="task-monthly-summary-estimated-min">見積（分）</label>
+              <input
+                id="task-monthly-summary-estimated-min"
+                className="task-monthly-summary-number-input"
+                type="number"
+                inputMode="numeric"
+                min="0"
+                step="1"
+                value={summaryEstimatedMinutesMinInput}
+                onChange={(event) => setSummaryEstimatedMinutesMinInput(event.target.value)}
+                placeholder="最小"
+              />
+              <span className="task-filter-range-separator">-</span>
+              <input
+                className="task-monthly-summary-number-input"
+                type="number"
+                inputMode="numeric"
+                min="0"
+                step="1"
+                value={summaryEstimatedMinutesMaxInput}
+                onChange={(event) => setSummaryEstimatedMinutesMaxInput(event.target.value)}
+                placeholder="最大"
+              />
+            </div>
+          </div>
+          {monthlyProjectActuals.length === 0 && !isLoading ? (
+            <p className="task-monthly-summary-empty">対象期間の案件集計データはありません。</p>
+          ) : sortedMonthlyProjectActuals.length === 0 && !isLoading ? (
+            <p className="task-monthly-summary-empty">検索条件に一致する案件集計はありません。</p>
+          ) : (
+            <div className="task-monthly-summary-table-wrap">
+              <table className="task-monthly-summary-table">
+                <thead>
+                  <tr>
+                    <th>
+                      <button
+                        className="task-monthly-summary-sort-button"
+                        type="button"
+                        onClick={() => toggleMonthlySummarySort('project')}
+                      >
+                        案件名
+                        <span>{buildMonthlySummarySortIndicator('project')}</span>
+                      </button>
+                    </th>
+                    <th className="task-monthly-summary-numeric">
+                      <button
+                        className="task-monthly-summary-sort-button"
+                        type="button"
+                        onClick={() => toggleMonthlySummarySort('actualMinutes')}
+                      >
+                        合計実績時間
+                        <span>{buildMonthlySummarySortIndicator('actualMinutes')}</span>
+                      </button>
+                    </th>
+                    <th className="task-monthly-summary-numeric">
+                      <button
+                        className="task-monthly-summary-sort-button"
+                        type="button"
+                        onClick={() => toggleMonthlySummarySort('estimatedMinutes')}
+                      >
+                        合計見積時間
+                        <span>{buildMonthlySummarySortIndicator('estimatedMinutes')}</span>
+                      </button>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedMonthlyProjectActuals.map((projectActual) => (
+                    <tr key={projectActual.project}>
+                      <td>{projectActual.project}</td>
+                      <td className="task-monthly-summary-numeric">
+                        {formatMinutesAsHourMinute(projectActual.actualMinutes)}
+                      </td>
+                      <td className="task-monthly-summary-numeric">
+                        {formatMinutesAsHourMinute(projectActual.estimatedMinutes)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <div className="task-monthly-summary-subsection">
+            <h5>カテゴリ別集計</h5>
+            {monthlyCategoryActuals.length === 0 && !isLoading ? (
+              <p className="task-monthly-summary-empty">
+                対象期間のカテゴリ集計データはありません。
+              </p>
+            ) : filteredMonthlyCategoryActuals.length === 0 && !isLoading ? (
+              <p className="task-monthly-summary-empty">
+                検索条件に一致するカテゴリ集計はありません。
+              </p>
+            ) : (
+              <div className="task-monthly-summary-table-wrap">
+                <table className="task-monthly-summary-table">
+                  <thead>
+                    <tr>
+                      <th>案件名</th>
+                      <th>カテゴリ</th>
+                      <th className="task-monthly-summary-numeric">合計実績時間</th>
+                      <th className="task-monthly-summary-numeric">合計見積時間</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredMonthlyCategoryActuals.map((categoryActual) => (
+                      <tr key={`${categoryActual.project}-${categoryActual.category}`}>
+                        <td>{categoryActual.project}</td>
+                        <td>{categoryActual.category}</td>
+                        <td className="task-monthly-summary-numeric">
+                          {formatMinutesAsHourMinute(categoryActual.actualMinutes)}
+                        </td>
+                        <td className="task-monthly-summary-numeric">
+                          {formatMinutesAsHourMinute(categoryActual.estimatedMinutes)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          <div className="task-monthly-summary-subsection">
+            <h5>タスク別集計</h5>
+            {monthlyTitleActuals.length === 0 && !isLoading ? (
+              <p className="task-monthly-summary-empty">対象期間のタスク集計データはありません。</p>
+            ) : filteredMonthlyTitleActuals.length === 0 && !isLoading ? (
+              <p className="task-monthly-summary-empty">
+                検索条件に一致するタスク集計はありません。
+              </p>
+            ) : (
+              <div className="task-monthly-summary-table-wrap">
+                <table className="task-monthly-summary-table">
+                  <thead>
+                    <tr>
+                      <th>案件名</th>
+                      <th>カテゴリ</th>
+                      <th>タスク</th>
+                      <th className="task-monthly-summary-numeric">合計実績時間</th>
+                      <th className="task-monthly-summary-numeric">合計見積時間</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredMonthlyTitleActuals.map((titleActual) => (
+                      <tr
+                        key={`${titleActual.project}-${titleActual.category}-${titleActual.title}`}
+                      >
+                        <td>{titleActual.project}</td>
+                        <td>{titleActual.category}</td>
+                        <td>{titleActual.title}</td>
+                        <td className="task-monthly-summary-numeric">
+                          {formatMinutesAsHourMinute(titleActual.actualMinutes)}
+                        </td>
+                        <td className="task-monthly-summary-numeric">
+                          {formatMinutesAsHourMinute(titleActual.estimatedMinutes)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </section>
         <div className="task-table-scroll">
           <table>
             <thead>
               <tr>
-                <th>案件/カテゴリ</th>
-                <th>タスク</th>
-                <th>ステータス</th>
-                <th>優先度</th>
-                <th>見積</th>
-                <th>実績</th>
+                <th>
+                  <button
+                    className="task-table-sort-button"
+                    type="button"
+                    onClick={() => toggleTaskTableSort('projectCategory')}
+                  >
+                    案件/カテゴリ
+                    <span>{buildTaskTableSortIndicator('projectCategory')}</span>
+                  </button>
+                </th>
+                <th>
+                  <button
+                    className="task-table-sort-button"
+                    type="button"
+                    onClick={() => toggleTaskTableSort('title')}
+                  >
+                    タスク
+                    <span>{buildTaskTableSortIndicator('title')}</span>
+                  </button>
+                </th>
+                <th>
+                  <button
+                    className="task-table-sort-button"
+                    type="button"
+                    onClick={() => toggleTaskTableSort('status')}
+                  >
+                    ステータス
+                    <span>{buildTaskTableSortIndicator('status')}</span>
+                  </button>
+                </th>
+                <th>
+                  <button
+                    className="task-table-sort-button"
+                    type="button"
+                    onClick={() => toggleTaskTableSort('priority')}
+                  >
+                    優先度
+                    <span>{buildTaskTableSortIndicator('priority')}</span>
+                  </button>
+                </th>
+                <th>
+                  <button
+                    className="task-table-sort-button"
+                    type="button"
+                    onClick={() => toggleTaskTableSort('estimatedMinutes')}
+                  >
+                    見積
+                    <span>{buildTaskTableSortIndicator('estimatedMinutes')}</span>
+                  </button>
+                </th>
+                <th>
+                  <button
+                    className="task-table-sort-button"
+                    type="button"
+                    onClick={() => toggleTaskTableSort('actualMinutes')}
+                  >
+                    実績
+                    <span>{buildTaskTableSortIndicator('actualMinutes')}</span>
+                  </button>
+                </th>
                 <th>操作</th>
               </tr>
             </thead>
             <tbody>
-              {tasks.map((task) => (
+              {sortedTasks.map((task) => (
                 <tr key={task.id} className={`task-row status-${task.status}`}>
                   <td>
                     <div className="task-cell-title">{task.project}</div>
@@ -802,10 +1424,12 @@ export const TaskBoard = ({
                   </td>
                 </tr>
               ))}
-              {tasks.length === 0 && !isLoading ? (
+              {sortedTasks.length === 0 && !isLoading ? (
                 <tr>
                   <td colSpan={7} className="task-empty-row">
-                    {selectedDateLabel} のタスクはありません。
+                    {tasks.length === 0
+                      ? `${selectedDateLabel} のタスクはありません。`
+                      : '検索条件に一致するタスクはありません。'}
                   </td>
                 </tr>
               ) : null}

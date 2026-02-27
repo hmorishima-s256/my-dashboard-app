@@ -7,13 +7,17 @@ import { JSONFile } from 'lowdb/node'
 import { getUserSettingsDir } from '../googleAuth'
 import { GUEST_USER_ID } from '../../shared/contracts'
 import type {
+  CategoryMonthlyActual,
+  ProjectMonthlyActual,
   Task,
   TaskActualLog,
   TaskCreateInput,
   TaskListResponse,
+  TaskMonthlyProjectActualsResponse,
   TaskPriority,
   TaskSchema,
   TaskStatus,
+  TitleMonthlyActual,
   UserProfile
 } from '../../shared/contracts'
 
@@ -25,6 +29,7 @@ type TaskStoreServiceDependencies = {
 
 type TaskStoreService = {
   getAll: (date: string) => Promise<TaskListResponse>
+  getMonthlyProjectActuals: (period: string) => Promise<TaskMonthlyProjectActualsResponse>
   add: (input: TaskCreateInput) => Promise<Task>
   update: (task: Task) => Promise<Task | null>
   remove: (taskId: string) => Promise<boolean>
@@ -33,6 +38,8 @@ type TaskStoreService = {
 
 const TASK_FILE_NAME = 'tasks.json'
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
+const YEAR_PATTERN = /^\d{4}$/
+const MONTH_PATTERN = /^\d{4}-\d{2}$/
 const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/
 const TASK_STATUS_SET: Set<TaskStatus> = new Set([
   'todo',
@@ -57,6 +64,16 @@ const normalizeDate = (value: string): string => {
     throw new Error(`Invalid task date: ${value}`)
   }
   return value
+}
+
+const normalizePeriod = (value: string): { period: string; periodUnit: 'month' | 'year' } => {
+  if (MONTH_PATTERN.test(value)) {
+    return { period: value, periodUnit: 'month' }
+  }
+  if (YEAR_PATTERN.test(value)) {
+    return { period: value, periodUnit: 'year' }
+  }
+  throw new Error(`Invalid task period: ${value}`)
 }
 
 const normalizeTimeValue = (value: string | null | undefined): string | null => {
@@ -237,6 +254,103 @@ const buildTaskListResponse = (schema: TaskSchema, date: string): TaskListRespon
   }
 }
 
+const buildMonthlyProjectActualsResponse = (
+  schema: TaskSchema,
+  period: string,
+  periodUnit: 'month' | 'year'
+): TaskMonthlyProjectActualsResponse => {
+  const projectSummaryMap = new Map<string, { actualMinutes: number; estimatedMinutes: number }>()
+  const categorySummaryMap = new Map<string, { actualMinutes: number; estimatedMinutes: number }>()
+  const titleSummaryMap = new Map<string, { actualMinutes: number; estimatedMinutes: number }>()
+  const periodPrefix = `${period}-`
+  schema.tasks.forEach((task) => {
+    if (!task.date.startsWith(periodPrefix)) return
+    const projectName = normalizeText(task.project)
+    if (!projectName) return
+    const categoryName = normalizeText(task.category) || '-'
+    const titleName = normalizeText(task.title) || '-'
+    const currentSummary = projectSummaryMap.get(projectName) ?? {
+      actualMinutes: 0,
+      estimatedMinutes: 0
+    }
+    projectSummaryMap.set(projectName, {
+      actualMinutes: currentSummary.actualMinutes + task.actual.minutes,
+      estimatedMinutes: currentSummary.estimatedMinutes + task.estimated.minutes
+    })
+
+    const categoryKey = `${projectName}\u0000${categoryName}`
+    const currentCategorySummary = categorySummaryMap.get(categoryKey) ?? {
+      actualMinutes: 0,
+      estimatedMinutes: 0
+    }
+    categorySummaryMap.set(categoryKey, {
+      actualMinutes: currentCategorySummary.actualMinutes + task.actual.minutes,
+      estimatedMinutes: currentCategorySummary.estimatedMinutes + task.estimated.minutes
+    })
+
+    const titleKey = `${projectName}\u0000${categoryName}\u0000${titleName}`
+    const currentTitleSummary = titleSummaryMap.get(titleKey) ?? {
+      actualMinutes: 0,
+      estimatedMinutes: 0
+    }
+    titleSummaryMap.set(titleKey, {
+      actualMinutes: currentTitleSummary.actualMinutes + task.actual.minutes,
+      estimatedMinutes: currentTitleSummary.estimatedMinutes + task.estimated.minutes
+    })
+  })
+
+  const projectActuals: ProjectMonthlyActual[] = Array.from(projectSummaryMap.entries())
+    .map(([project, summary]) => ({
+      project,
+      actualMinutes: summary.actualMinutes,
+      estimatedMinutes: summary.estimatedMinutes
+    }))
+    .sort((a, b) => a.project.localeCompare(b.project, 'ja'))
+
+  const categoryActuals: CategoryMonthlyActual[] = Array.from(categorySummaryMap.entries())
+    .map(([key, summary]) => {
+      const [project, category] = key.split('\u0000')
+      return {
+        project,
+        category,
+        actualMinutes: summary.actualMinutes,
+        estimatedMinutes: summary.estimatedMinutes
+      }
+    })
+    .sort((a, b) => {
+      const comparedProject = a.project.localeCompare(b.project, 'ja')
+      if (comparedProject !== 0) return comparedProject
+      return a.category.localeCompare(b.category, 'ja')
+    })
+
+  const titleActuals: TitleMonthlyActual[] = Array.from(titleSummaryMap.entries())
+    .map(([key, summary]) => {
+      const [project, category, title] = key.split('\u0000')
+      return {
+        project,
+        category,
+        title,
+        actualMinutes: summary.actualMinutes,
+        estimatedMinutes: summary.estimatedMinutes
+      }
+    })
+    .sort((a, b) => {
+      const comparedProject = a.project.localeCompare(b.project, 'ja')
+      if (comparedProject !== 0) return comparedProject
+      const comparedCategory = a.category.localeCompare(b.category, 'ja')
+      if (comparedCategory !== 0) return comparedCategory
+      return a.title.localeCompare(b.title, 'ja')
+    })
+
+  return {
+    period,
+    periodUnit,
+    projectActuals,
+    categoryActuals,
+    titleActuals
+  }
+}
+
 // lowdb を利用したタスク保存サービス（ログインユーザーは永続、ゲストはセッション限定）
 export const createTaskStoreService = (
   dependencies: TaskStoreServiceDependencies
@@ -293,6 +407,19 @@ export const createTaskStoreService = (
     const normalizedDate = normalizeDate(date)
     const { db } = await getLoadedSchema(userId)
     return buildTaskListResponse(db.data, normalizedDate)
+  }
+
+  const getMonthlyProjectActuals = async (
+    period: string
+  ): Promise<TaskMonthlyProjectActualsResponse> => {
+    const userId = resolveUserId()
+    const normalizedPeriod = normalizePeriod(period)
+    const { db } = await getLoadedSchema(userId)
+    return buildMonthlyProjectActualsResponse(
+      db.data,
+      normalizedPeriod.period,
+      normalizedPeriod.periodUnit
+    )
   }
 
   const add = async (input: TaskCreateInput): Promise<Task> => {
@@ -374,6 +501,7 @@ export const createTaskStoreService = (
 
   return {
     getAll,
+    getMonthlyProjectActuals,
     add,
     update,
     remove,

@@ -111,3 +111,32 @@ export type TaskListResponse = {
   projectCategories: Record<string, string[]>
   projectTitles: Record<string, string[]>
 }
+
+export type ProjectMonthlyActual = {
+  project: string
+  actualMinutes: number
+  estimatedMinutes: number
+}
+
+export type CategoryMonthlyActual = {
+  project: string
+  category: string
+  actualMinutes: number
+  estimatedMinutes: number
+}
+
+export type TitleMonthlyActual = {
+  project: string
+  category: string
+  title: string
+  actualMinutes: number
+  estimatedMinutes: number
+}
+
+export type TaskMonthlyProjectActualsResponse = {
+  period: string
+  periodUnit: 'month' | 'year'
+  projectActuals: ProjectMonthlyActual[]
+  categoryActuals: CategoryMonthlyActual[]
+  titleActuals: TitleMonthlyActual[]
+}

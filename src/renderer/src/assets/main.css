@@ -703,9 +703,129 @@ code {
   font-size: 12px;
 }
 
+.task-monthly-summary {
+  margin: 8px 12px 0;
+  border: 1px solid rgba(143, 170, 212, 0.2);
+  border-radius: 10px;
+  background: rgba(9, 17, 32, 0.55);
+}
+
+.task-monthly-summary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(143, 170, 212, 0.18);
+}
+
+.task-monthly-summary-header h4 {
+  margin: 0;
+  color: #eaf4ff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.task-monthly-summary-controls {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.task-monthly-summary-controls label {
+  color: #dbe9ff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.task-monthly-summary-month-input,
+.task-monthly-summary-year-input,
+.task-monthly-summary-unit-select,
+.task-monthly-summary-number-input {
+  border: 1px solid var(--dash-line);
+  border-radius: 8px;
+  height: 30px;
+  padding: 0 8px;
+  color: #eaf4ff;
+  font-size: 12px;
+  background: rgba(10, 18, 34, 0.95);
+}
+
+.task-monthly-summary-year-input {
+  width: 88px;
+}
+
+.task-monthly-summary-number-input {
+  width: 84px;
+}
+
+.task-monthly-summary-table-wrap {
+  padding: 8px 10px;
+}
+
+.task-monthly-summary-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.task-monthly-summary-table th,
+.task-monthly-summary-table td {
+  padding: 6px 4px;
+  border-bottom: 1px solid rgba(143, 170, 212, 0.15);
+  font-size: 12px;
+}
+
+.task-monthly-summary-table th {
+  text-align: left;
+  color: #dbe9ff;
+  font-weight: 700;
+}
+
+.task-monthly-summary-sort-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.task-monthly-summary-table td {
+  color: #f1f6ff;
+}
+
+.task-monthly-summary-table th.task-monthly-summary-numeric,
+.task-monthly-summary-table td.task-monthly-summary-numeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.task-monthly-summary-empty {
+  margin: 0;
+  padding: 8px 10px;
+  color: var(--dash-text-muted);
+  font-size: 12px;
+}
+
+.task-monthly-summary-subsection {
+  border-top: 1px solid rgba(143, 170, 212, 0.18);
+}
+
+.task-monthly-summary-subsection h5 {
+  margin: 0;
+  padding: 8px 10px 0;
+  color: #dbe9ff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .task-table-card {
-  display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   min-height: 0;
 }
 
@@ -716,6 +836,71 @@ code {
   gap: 10px;
   padding: 12px;
   border-bottom: 1px solid rgba(143, 170, 212, 0.15);
+}
+
+.task-table-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.task-table-filter-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(143, 170, 212, 0.12);
+}
+
+.task-table-filter-row label {
+  color: #dbe9ff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.task-table-search-input,
+.task-summary-search-input {
+  border: 1px solid var(--dash-line);
+  border-radius: 8px;
+  height: 30px;
+  padding: 0 10px;
+  color: #eaf4ff;
+  font-size: 12px;
+  background: rgba(10, 18, 34, 0.95);
+}
+
+.task-table-search-input {
+  width: 220px;
+}
+
+.task-summary-search-input {
+  width: 220px;
+}
+
+.task-filter-select,
+.task-filter-number-input {
+  border: 1px solid var(--dash-line);
+  border-radius: 8px;
+  height: 30px;
+  padding: 0 8px;
+  color: #eaf4ff;
+  font-size: 12px;
+  background: rgba(10, 18, 34, 0.95);
+}
+
+.task-filter-select {
+  min-width: 92px;
+}
+
+.task-filter-number-input {
+  width: 78px;
+}
+
+.task-filter-range-separator {
+  color: var(--dash-text-muted);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .task-table-title-wrap {
@@ -750,6 +935,7 @@ code {
 }
 
 .task-table-scroll {
+  flex: 1;
   min-height: 0;
   overflow: auto;
 }
@@ -775,6 +961,18 @@ code {
   font-size: 12px;
   color: #dbe9ff;
   background: rgba(15, 28, 53, 0.95);
+}
+
+.task-table-sort-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  background: transparent;
+  cursor: pointer;
 }
 
 .task-cell-title {
@@ -1150,5 +1348,23 @@ code {
 
   .task-table-title-wrap {
     flex-wrap: wrap;
+  }
+
+  .task-table-header-actions {
+    width: 100%;
+  }
+
+  .task-table-filter-row {
+    width: 100%;
+  }
+
+  .task-filter-select,
+  .task-filter-number-input {
+    min-width: 0;
+  }
+
+  .task-table-search-input,
+  .task-summary-search-input {
+    width: 100%;
   }
 }

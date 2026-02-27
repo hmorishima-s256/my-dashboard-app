@@ -32,18 +32,19 @@ afterEach(async () => {
   )
 })
 
-const createTaskInput = (): TaskCreateInput => ({
-  date: '2026-02-18',
-  project: '案件A',
-  category: '設計',
-  title: '詳細設計書修正',
-  priority: '中',
-  memo: '確認あり',
+const createTaskInput = (override: Partial<TaskCreateInput> = {}): TaskCreateInput => ({
+  date: override.date ?? '2026-02-18',
+  project: override.project ?? '案件A',
+  category: override.category ?? '設計',
+  title: override.title ?? '詳細設計書修正',
+  priority: override.priority ?? '中',
+  memo: override.memo ?? '確認あり',
   estimated: {
-    start: '09:00',
-    end: '10:00',
-    minutes: 60
-  }
+    start: override.estimated?.start ?? '09:00',
+    end: override.estimated?.end ?? '10:00',
+    minutes: override.estimated?.minutes ?? 60
+  },
+  actual: override.actual
 })
 
 describe('taskStoreService', () => {
@@ -100,6 +101,200 @@ describe('taskStoreService', () => {
       projectCategories: {},
       projectTitles: {}
     })
+  })
+
+  it('月次の案件別実績時間を集計できる', async () => {
+    const rootPath = await createTempRoot()
+    const { createTaskStoreService } = await loadTaskStoreModule(rootPath)
+    const user: UserProfile = { name: 'Test', email: 'summary@example.com', iconUrl: '' }
+    let idCounter = 0
+
+    const taskStore = createTaskStoreService({
+      getCurrentUser: () => user,
+      createId: () => `task-summary-${idCounter++}`,
+      getNow: () => new Date('2026-02-18T00:00:00.000Z')
+    })
+
+    await taskStore.add(
+      createTaskInput({
+        date: '2026-02-01',
+        project: '案件A',
+        title: '集計A1',
+        actual: { minutes: 30 }
+      })
+    )
+    await taskStore.add(
+      createTaskInput({
+        date: '2026-02-15',
+        project: '案件A',
+        title: '集計A2',
+        actual: { minutes: 60 }
+      })
+    )
+    await taskStore.add(
+      createTaskInput({
+        date: '2026-02-20',
+        project: '案件B',
+        title: '集計B1',
+        actual: { minutes: 45 }
+      })
+    )
+    await taskStore.add(
+      createTaskInput({
+        date: '2026-03-01',
+        project: '案件C',
+        title: '集計C1',
+        actual: { minutes: 120 }
+      })
+    )
+
+    await expect(taskStore.getMonthlyProjectActuals('2026-02')).resolves.toEqual({
+      period: '2026-02',
+      periodUnit: 'month',
+      projectActuals: [
+        { project: '案件A', actualMinutes: 90, estimatedMinutes: 120 },
+        { project: '案件B', actualMinutes: 45, estimatedMinutes: 60 }
+      ],
+      categoryActuals: [
+        { project: '案件A', category: '設計', actualMinutes: 90, estimatedMinutes: 120 },
+        { project: '案件B', category: '設計', actualMinutes: 45, estimatedMinutes: 60 }
+      ],
+      titleActuals: [
+        {
+          project: '案件A',
+          category: '設計',
+          title: '集計A1',
+          actualMinutes: 30,
+          estimatedMinutes: 60
+        },
+        {
+          project: '案件A',
+          category: '設計',
+          title: '集計A2',
+          actualMinutes: 60,
+          estimatedMinutes: 60
+        },
+        {
+          project: '案件B',
+          category: '設計',
+          title: '集計B1',
+          actualMinutes: 45,
+          estimatedMinutes: 60
+        }
+      ]
+    })
+
+    await expect(taskStore.getMonthlyProjectActuals('2026')).resolves.toEqual({
+      period: '2026',
+      periodUnit: 'year',
+      projectActuals: [
+        { project: '案件A', actualMinutes: 90, estimatedMinutes: 120 },
+        { project: '案件B', actualMinutes: 45, estimatedMinutes: 60 },
+        { project: '案件C', actualMinutes: 120, estimatedMinutes: 60 }
+      ],
+      categoryActuals: [
+        { project: '案件A', category: '設計', actualMinutes: 90, estimatedMinutes: 120 },
+        { project: '案件B', category: '設計', actualMinutes: 45, estimatedMinutes: 60 },
+        { project: '案件C', category: '設計', actualMinutes: 120, estimatedMinutes: 60 }
+      ],
+      titleActuals: [
+        {
+          project: '案件A',
+          category: '設計',
+          title: '集計A1',
+          actualMinutes: 30,
+          estimatedMinutes: 60
+        },
+        {
+          project: '案件A',
+          category: '設計',
+          title: '集計A2',
+          actualMinutes: 60,
+          estimatedMinutes: 60
+        },
+        {
+          project: '案件B',
+          category: '設計',
+          title: '集計B1',
+          actualMinutes: 45,
+          estimatedMinutes: 60
+        },
+        {
+          project: '案件C',
+          category: '設計',
+          title: '集計C1',
+          actualMinutes: 120,
+          estimatedMinutes: 60
+        }
+      ]
+    })
+  })
+
+  it('集計期間が不正な場合はエラーになる', async () => {
+    const rootPath = await createTempRoot()
+    const { createTaskStoreService } = await loadTaskStoreModule(rootPath)
+    const user: UserProfile = { name: 'Test', email: 'invalid-period@example.com', iconUrl: '' }
+
+    const taskStore = createTaskStoreService({
+      getCurrentUser: () => user,
+      createId: () => 'task-invalid-period',
+      getNow: () => new Date('2026-02-18T00:00:00.000Z')
+    })
+
+    await expect(taskStore.getMonthlyProjectActuals('2026/02')).rejects.toThrow(
+      'Invalid task period: 2026/02'
+    )
+  })
+
+  it('登録・ステータス更新・削除を連続操作しても整合性を保つ', async () => {
+    const rootPath = await createTempRoot()
+    const { createTaskStoreService } = await loadTaskStoreModule(rootPath)
+    const user: UserProfile = { name: 'Test', email: 'regression@example.com', iconUrl: '' }
+    let idCounter = 0
+    let now = new Date('2026-02-18T00:00:00.000Z')
+
+    const taskStore = createTaskStoreService({
+      getCurrentUser: () => user,
+      createId: () => `task-regression-${idCounter++}`,
+      getNow: () => now
+    })
+
+    const taskA = await taskStore.add(
+      createTaskInput({
+        title: '回帰確認A'
+      })
+    )
+    now = new Date('2026-02-18T00:00:01.000Z')
+    const taskB = await taskStore.add(
+      createTaskInput({
+        title: '回帰確認B'
+      })
+    )
+
+    // createdAt 昇順で取得されること（既存挙動）
+    const initial = await taskStore.getAll('2026-02-18')
+    expect(initial.tasks.map((task) => task.id)).toEqual([taskA.id, taskB.id])
+    expect(initial.tasks.map((task) => task.status)).toEqual(['todo', 'todo'])
+
+    now = new Date('2026-02-18T00:01:00.000Z')
+    const updatedTaskA = await taskStore.update({ ...taskA, status: 'doing' })
+    expect(updatedTaskA?.status).toBe('doing')
+
+    now = new Date('2026-02-18T00:02:00.000Z')
+    const updatedTaskB = await taskStore.update({ ...taskB, status: 'done' })
+    expect(updatedTaskB?.status).toBe('done')
+
+    const afterStatusUpdate = await taskStore.getAll('2026-02-18')
+    expect(afterStatusUpdate.tasks).toMatchObject([
+      { id: taskA.id, status: 'doing' },
+      { id: taskB.id, status: 'done' }
+    ])
+
+    await expect(taskStore.remove(taskA.id)).resolves.toBe(true)
+    const afterDelete = await taskStore.getAll('2026-02-18')
+    expect(afterDelete.tasks).toHaveLength(1)
+    expect(afterDelete.tasks[0].id).toBe(taskB.id)
+    expect(afterDelete.tasks[0].status).toBe('done')
   })
 
   it('ゲストユーザーはアプリ終了時クリアを想定した削除処理ができる', async () => {

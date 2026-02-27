@@ -8,6 +8,7 @@ import type {
   Task,
   TaskCreateInput,
   TaskListResponse,
+  TaskMonthlyProjectActualsResponse,
   UserProfile
 } from '../shared/contracts'
 
@@ -23,6 +24,12 @@ const api = {
     ipcRenderer.invoke('get-default-profile-icon-url') as Promise<string>,
   taskGetAll: (userId: string, targetDate: string) =>
     ipcRenderer.invoke('task:get-all', userId, targetDate) as Promise<TaskListResponse>,
+  taskGetMonthlyProjectActuals: (userId: string, targetPeriod: string) =>
+    ipcRenderer.invoke(
+      'task:get-monthly-project-actuals',
+      userId,
+      targetPeriod
+    ) as Promise<TaskMonthlyProjectActualsResponse>,
   taskAdd: (taskInput: TaskCreateInput) =>
     ipcRenderer.invoke('task:add', taskInput) as Promise<Task>,
   taskUpdate: (task: Task) => ipcRenderer.invoke('task:update', task) as Promise<Task | null>,

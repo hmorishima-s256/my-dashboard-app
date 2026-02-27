@@ -5,6 +5,7 @@ import type {
   Task,
   TaskCreateInput,
   TaskListResponse,
+  TaskMonthlyProjectActualsResponse,
   UserProfile
 } from '../../../shared/contracts'
 
@@ -28,6 +29,7 @@ export type MainIpcHandlerDependencies = {
   ensureMainWindowVisible: () => void
   buildDateKey: (date: Date) => string
   taskGetAll: (date: string) => Promise<TaskListResponse>
+  taskGetMonthlyProjectActuals: (period: string) => Promise<TaskMonthlyProjectActualsResponse>
   taskAdd: (taskInput: TaskCreateInput) => Promise<Task>
   taskUpdate: (task: Task) => Promise<Task | null>
   taskDelete: (taskId: string) => Promise<boolean>
