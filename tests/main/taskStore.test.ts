@@ -230,6 +230,22 @@ describe('taskStoreService', () => {
     })
   })
 
+  it('集計期間が不正な場合はエラーになる', async () => {
+    const rootPath = await createTempRoot()
+    const { createTaskStoreService } = await loadTaskStoreModule(rootPath)
+    const user: UserProfile = { name: 'Test', email: 'invalid-period@example.com', iconUrl: '' }
+
+    const taskStore = createTaskStoreService({
+      getCurrentUser: () => user,
+      createId: () => 'task-invalid-period',
+      getNow: () => new Date('2026-02-18T00:00:00.000Z')
+    })
+
+    await expect(taskStore.getMonthlyProjectActuals('2026/02')).rejects.toThrow(
+      'Invalid task period: 2026/02'
+    )
+  })
+
   it('登録・ステータス更新・削除を連続操作しても整合性を保つ', async () => {
     const rootPath = await createTempRoot()
     const { createTaskStoreService } = await loadTaskStoreModule(rootPath)

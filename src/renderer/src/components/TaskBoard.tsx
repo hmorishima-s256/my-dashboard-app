@@ -2,6 +2,25 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import CreatableSelect from 'react-select/creatable'
 import type { SingleValue, StylesConfig } from 'react-select'
 import {
+  ALL_TASK_PRIORITY_FILTER,
+  ALL_TASK_STATUS_FILTER,
+  filterMonthlyCategoryActuals,
+  filterMonthlyProjectActuals,
+  filterMonthlyTitleActuals,
+  filterTasks,
+  normalizeSearchKeyword,
+  parseFilterMinutesText,
+  sortMonthlyProjectActuals,
+  sortTasks
+} from '../lib/taskBoardSearchSort'
+import type {
+  MonthlySummarySortKey,
+  SortDirection,
+  TaskPriorityFilter,
+  TaskStatusFilter,
+  TaskTableSortKey
+} from '../lib/taskBoardSearchSort'
+import {
   calculateActualDurationMinutes,
   calculateDurationMinutes,
   calculateEndTime,
@@ -38,19 +57,7 @@ type SelectOption = {
 
 type DurationUnit = 'hourMinute' | 'decimalHours' | 'minutes'
 type TaskModalMode = 'create' | 'edit'
-type MonthlySummarySortKey = 'project' | 'actualMinutes' | 'estimatedMinutes'
 type SummaryPeriodUnit = 'month' | 'year'
-type TaskTableSortKey =
-  | 'createdAt'
-  | 'projectCategory'
-  | 'title'
-  | 'status'
-  | 'priority'
-  | 'estimatedMinutes'
-  | 'actualMinutes'
-type SortDirection = 'asc' | 'desc'
-type TaskStatusFilter = TaskStatus | 'all'
-type TaskPriorityFilter = TaskPriority | 'all'
 
 const STATUS_OPTIONS: Array<{ value: TaskStatus; label: string }> = [
   { value: 'todo', label: '未着手' },
@@ -62,24 +69,8 @@ const STATUS_OPTIONS: Array<{ value: TaskStatus; label: string }> = [
 ]
 
 const PRIORITY_OPTIONS: TaskPriority[] = ['緊急', '高', '中', '低']
-const ALL_TASK_STATUS_FILTER: TaskStatusFilter = 'all'
-const ALL_TASK_PRIORITY_FILTER: TaskPriorityFilter = 'all'
 const MONTH_PATTERN = /^\d{4}-\d{2}$/
 const YEAR_PATTERN = /^\d{4}$/
-const TASK_STATUS_SORT_ORDER: Record<TaskStatus, number> = {
-  todo: 0,
-  doing: 1,
-  suspend: 2,
-  done: 3,
-  carryover: 4,
-  finished: 5
-}
-const TASK_PRIORITY_SORT_ORDER: Record<TaskPriority, number> = {
-  緊急: 0,
-  高: 1,
-  中: 2,
-  低: 3
-}
 
 const selectStyles: StylesConfig<SelectOption, false> = {
   control: (base, state) => ({
@@ -130,7 +121,7 @@ const formatIsoToTime = (iso: string): string => {
 
 const normalizeNumericText = (value: string): string =>
   value
-    .replace(/[０-９]/g, (digit) => String(digit.charCodeAt(0) - 0xfee0))
+    .replace(/[０-９]/g, (digit) => String.fromCharCode(digit.charCodeAt(0) - 0xfee0))
     .replace(/．/g, '.')
     .trim()
 
@@ -213,27 +204,6 @@ const upsertProjectScopedValue = (
     ...previous,
     [trimmedProject]: nextList
   }
-}
-
-const normalizeSearchKeyword = (value: string): string => value.trim().toLocaleLowerCase('ja')
-
-const matchesSearchKeyword = (keyword: string, fields: string[]): boolean => {
-  if (!keyword) return true
-  return fields.some((field) => field.toLocaleLowerCase('ja').includes(keyword))
-}
-
-const parseFilterMinutesText = (value: string): number | null => {
-  const normalized = normalizeNumericText(value)
-  if (!normalized) return null
-  const numeric = Number(normalized)
-  if (!Number.isFinite(numeric) || numeric < 0) return null
-  return Math.floor(numeric)
-}
-
-const matchesMinutesRange = (minutes: number, min: number | null, max: number | null): boolean => {
-  if (min !== null && minutes < min) return false
-  if (max !== null && minutes > max) return false
-  return true
 }
 
 // タスクの登録・一覧・計測操作を担当するコンポーネント
@@ -361,28 +331,14 @@ export const TaskBoard = ({
   )
   const filteredMonthlyProjectActuals = useMemo(
     () =>
-      monthlyProjectActuals.filter((projectActual) => {
-        if (!matchesSearchKeyword(summarySearchKeyword, [projectActual.project])) return false
-        if (
-          !matchesMinutesRange(
-            projectActual.actualMinutes,
-            summaryActualMinutesMin,
-            summaryActualMinutesMax
-          )
-        ) {
-          return false
-        }
-        if (
-          !matchesMinutesRange(
-            projectActual.estimatedMinutes,
-            summaryEstimatedMinutesMin,
-            summaryEstimatedMinutesMax
-          )
-        ) {
-          return false
-        }
-        return true
-      }),
+      filterMonthlyProjectActuals(
+        monthlyProjectActuals,
+        summarySearchKeyword,
+        summaryActualMinutesMin,
+        summaryActualMinutesMax,
+        summaryEstimatedMinutesMin,
+        summaryEstimatedMinutesMax
+      ),
     [
       monthlyProjectActuals,
       summarySearchKeyword,
@@ -394,35 +350,14 @@ export const TaskBoard = ({
   )
   const filteredMonthlyCategoryActuals = useMemo(
     () =>
-      monthlyCategoryActuals.filter((categoryActual) => {
-        if (
-          !matchesSearchKeyword(summarySearchKeyword, [
-            categoryActual.project,
-            categoryActual.category
-          ])
-        ) {
-          return false
-        }
-        if (
-          !matchesMinutesRange(
-            categoryActual.actualMinutes,
-            summaryActualMinutesMin,
-            summaryActualMinutesMax
-          )
-        ) {
-          return false
-        }
-        if (
-          !matchesMinutesRange(
-            categoryActual.estimatedMinutes,
-            summaryEstimatedMinutesMin,
-            summaryEstimatedMinutesMax
-          )
-        ) {
-          return false
-        }
-        return true
-      }),
+      filterMonthlyCategoryActuals(
+        monthlyCategoryActuals,
+        summarySearchKeyword,
+        summaryActualMinutesMin,
+        summaryActualMinutesMax,
+        summaryEstimatedMinutesMin,
+        summaryEstimatedMinutesMax
+      ),
     [
       monthlyCategoryActuals,
       summarySearchKeyword,
@@ -434,36 +369,14 @@ export const TaskBoard = ({
   )
   const filteredMonthlyTitleActuals = useMemo(
     () =>
-      monthlyTitleActuals.filter((titleActual) => {
-        if (
-          !matchesSearchKeyword(summarySearchKeyword, [
-            titleActual.project,
-            titleActual.category,
-            titleActual.title
-          ])
-        ) {
-          return false
-        }
-        if (
-          !matchesMinutesRange(
-            titleActual.actualMinutes,
-            summaryActualMinutesMin,
-            summaryActualMinutesMax
-          )
-        ) {
-          return false
-        }
-        if (
-          !matchesMinutesRange(
-            titleActual.estimatedMinutes,
-            summaryEstimatedMinutesMin,
-            summaryEstimatedMinutesMax
-          )
-        ) {
-          return false
-        }
-        return true
-      }),
+      filterMonthlyTitleActuals(
+        monthlyTitleActuals,
+        summarySearchKeyword,
+        summaryActualMinutesMin,
+        summaryActualMinutesMax,
+        summaryEstimatedMinutesMin,
+        summaryEstimatedMinutesMax
+      ),
     [
       monthlyTitleActuals,
       summarySearchKeyword,
@@ -473,51 +386,25 @@ export const TaskBoard = ({
       summaryEstimatedMinutesMax
     ]
   )
-  const sortedMonthlyProjectActuals = useMemo(() => {
-    const direction = monthlySummarySortDirection === 'asc' ? 1 : -1
-    return [...filteredMonthlyProjectActuals].sort((left, right) => {
-      let comparedValue = 0
-      if (monthlySummarySortKey === 'project') {
-        comparedValue = left.project.localeCompare(right.project, 'ja')
-      } else if (monthlySummarySortKey === 'actualMinutes') {
-        comparedValue = left.actualMinutes - right.actualMinutes
-      } else {
-        comparedValue = left.estimatedMinutes - right.estimatedMinutes
-      }
-      if (comparedValue !== 0) {
-        return comparedValue * direction
-      }
-      return left.project.localeCompare(right.project, 'ja')
-    })
-  }, [filteredMonthlyProjectActuals, monthlySummarySortDirection, monthlySummarySortKey])
+  const sortedMonthlyProjectActuals = useMemo(
+    () =>
+      sortMonthlyProjectActuals(
+        filteredMonthlyProjectActuals,
+        monthlySummarySortKey,
+        monthlySummarySortDirection
+      ),
+    [filteredMonthlyProjectActuals, monthlySummarySortDirection, monthlySummarySortKey]
+  )
   const filteredTasks = useMemo(
     () =>
-      tasks.filter((task) => {
-        if (!matchesSearchKeyword(taskSearchKeyword, [task.project, task.category, task.title])) {
-          return false
-        }
-        if (taskStatusFilter !== ALL_TASK_STATUS_FILTER && task.status !== taskStatusFilter) {
-          return false
-        }
-        if (
-          taskPriorityFilter !== ALL_TASK_PRIORITY_FILTER &&
-          task.priority !== taskPriorityFilter
-        ) {
-          return false
-        }
-        if (
-          !matchesMinutesRange(
-            task.estimated.minutes,
-            taskEstimatedMinutesMin,
-            taskEstimatedMinutesMax
-          )
-        ) {
-          return false
-        }
-        if (!matchesMinutesRange(task.actual.minutes, taskActualMinutesMin, taskActualMinutesMax)) {
-          return false
-        }
-        return true
+      filterTasks(tasks, {
+        keyword: taskSearchKeyword,
+        statusFilter: taskStatusFilter,
+        priorityFilter: taskPriorityFilter,
+        estimatedMin: taskEstimatedMinutesMin,
+        estimatedMax: taskEstimatedMinutesMax,
+        actualMin: taskActualMinutesMin,
+        actualMax: taskActualMinutesMax
       }),
     [
       taskSearchKeyword,
@@ -530,55 +417,10 @@ export const TaskBoard = ({
       taskActualMinutesMax
     ]
   )
-  const sortedTasks = useMemo(() => {
-    const direction = taskTableSortDirection === 'asc' ? 1 : -1
-    return [...filteredTasks].sort((left, right) => {
-      let comparedValue = 0
-      switch (taskTableSortKey) {
-        case 'createdAt': {
-          comparedValue = left.createdAt.localeCompare(right.createdAt)
-          break
-        }
-        case 'projectCategory': {
-          comparedValue = left.project.localeCompare(right.project, 'ja')
-          if (comparedValue === 0) {
-            comparedValue = left.category.localeCompare(right.category, 'ja')
-          }
-          break
-        }
-        case 'title': {
-          comparedValue = left.title.localeCompare(right.title, 'ja')
-          break
-        }
-        case 'status': {
-          comparedValue = TASK_STATUS_SORT_ORDER[left.status] - TASK_STATUS_SORT_ORDER[right.status]
-          break
-        }
-        case 'priority': {
-          comparedValue =
-            TASK_PRIORITY_SORT_ORDER[left.priority] - TASK_PRIORITY_SORT_ORDER[right.priority]
-          break
-        }
-        case 'estimatedMinutes': {
-          comparedValue = left.estimated.minutes - right.estimated.minutes
-          break
-        }
-        case 'actualMinutes': {
-          comparedValue = left.actual.minutes - right.actual.minutes
-          break
-        }
-      }
-
-      if (comparedValue !== 0) {
-        return comparedValue * direction
-      }
-      const createdAtCompared = left.createdAt.localeCompare(right.createdAt)
-      if (createdAtCompared !== 0) {
-        return createdAtCompared
-      }
-      return left.id.localeCompare(right.id)
-    })
-  }, [filteredTasks, taskTableSortDirection, taskTableSortKey])
+  const sortedTasks = useMemo(
+    () => sortTasks(filteredTasks, taskTableSortKey, taskTableSortDirection),
+    [filteredTasks, taskTableSortDirection, taskTableSortKey]
+  )
 
   const parseDurationMinutes = (value: string, unit: DurationUnit): number => {
     const normalized = normalizeNumericText(value)
