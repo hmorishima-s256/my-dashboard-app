@@ -39,6 +39,14 @@ type SelectOption = {
 type DurationUnit = 'hourMinute' | 'decimalHours' | 'minutes'
 type TaskModalMode = 'create' | 'edit'
 type MonthlySummarySortKey = 'project' | 'actualMinutes'
+type TaskTableSortKey =
+  | 'createdAt'
+  | 'projectCategory'
+  | 'title'
+  | 'status'
+  | 'priority'
+  | 'estimatedMinutes'
+  | 'actualMinutes'
 type SortDirection = 'asc' | 'desc'
 
 const STATUS_OPTIONS: Array<{ value: TaskStatus; label: string }> = [
@@ -52,6 +60,20 @@ const STATUS_OPTIONS: Array<{ value: TaskStatus; label: string }> = [
 
 const PRIORITY_OPTIONS: TaskPriority[] = ['緊急', '高', '中', '低']
 const MONTH_PATTERN = /^\d{4}-\d{2}$/
+const TASK_STATUS_SORT_ORDER: Record<TaskStatus, number> = {
+  todo: 0,
+  doing: 1,
+  suspend: 2,
+  done: 3,
+  carryover: 4,
+  finished: 5
+}
+const TASK_PRIORITY_SORT_ORDER: Record<TaskPriority, number> = {
+  緊急: 0,
+  高: 1,
+  中: 2,
+  低: 3
+}
 
 const selectStyles: StylesConfig<SelectOption, false> = {
   control: (base, state) => ({
@@ -201,6 +223,8 @@ export const TaskBoard = ({
   const [monthlyProjectActuals, setMonthlyProjectActuals] = useState<
     TaskMonthlyProjectActualsResponse['projectActuals']
   >([])
+  const [taskTableSortKey, setTaskTableSortKey] = useState<TaskTableSortKey>('createdAt')
+  const [taskTableSortDirection, setTaskTableSortDirection] = useState<SortDirection>('asc')
   const [monthlySummarySortKey, setMonthlySummarySortKey] =
     useState<MonthlySummarySortKey>('project')
   const [monthlySummarySortDirection, setMonthlySummarySortDirection] =
@@ -260,6 +284,55 @@ export const TaskBoard = ({
       return left.project.localeCompare(right.project, 'ja')
     })
   }, [monthlyProjectActuals, monthlySummarySortDirection, monthlySummarySortKey])
+  const sortedTasks = useMemo(() => {
+    const direction = taskTableSortDirection === 'asc' ? 1 : -1
+    return [...tasks].sort((left, right) => {
+      let comparedValue = 0
+      switch (taskTableSortKey) {
+        case 'createdAt': {
+          comparedValue = left.createdAt.localeCompare(right.createdAt)
+          break
+        }
+        case 'projectCategory': {
+          comparedValue = left.project.localeCompare(right.project, 'ja')
+          if (comparedValue === 0) {
+            comparedValue = left.category.localeCompare(right.category, 'ja')
+          }
+          break
+        }
+        case 'title': {
+          comparedValue = left.title.localeCompare(right.title, 'ja')
+          break
+        }
+        case 'status': {
+          comparedValue = TASK_STATUS_SORT_ORDER[left.status] - TASK_STATUS_SORT_ORDER[right.status]
+          break
+        }
+        case 'priority': {
+          comparedValue =
+            TASK_PRIORITY_SORT_ORDER[left.priority] - TASK_PRIORITY_SORT_ORDER[right.priority]
+          break
+        }
+        case 'estimatedMinutes': {
+          comparedValue = left.estimated.minutes - right.estimated.minutes
+          break
+        }
+        case 'actualMinutes': {
+          comparedValue = left.actual.minutes - right.actual.minutes
+          break
+        }
+      }
+
+      if (comparedValue !== 0) {
+        return comparedValue * direction
+      }
+      const createdAtCompared = left.createdAt.localeCompare(right.createdAt)
+      if (createdAtCompared !== 0) {
+        return createdAtCompared
+      }
+      return left.id.localeCompare(right.id)
+    })
+  }, [taskTableSortDirection, taskTableSortKey, tasks])
 
   const parseDurationMinutes = (value: string, unit: DurationUnit): number => {
     const normalized = normalizeNumericText(value)
@@ -734,6 +807,20 @@ export const TaskBoard = ({
     return monthlySummarySortDirection === 'asc' ? '▲' : '▼'
   }
 
+  const toggleTaskTableSort = (nextSortKey: TaskTableSortKey): void => {
+    if (taskTableSortKey === nextSortKey) {
+      setTaskTableSortDirection((previous) => (previous === 'asc' ? 'desc' : 'asc'))
+      return
+    }
+    setTaskTableSortKey(nextSortKey)
+    setTaskTableSortDirection('asc')
+  }
+
+  const buildTaskTableSortIndicator = (targetSortKey: TaskTableSortKey): string => {
+    if (taskTableSortKey !== targetSortKey) return '↕'
+    return taskTableSortDirection === 'asc' ? '▲' : '▼'
+  }
+
   const handleChangeSummaryMonth = (value: string): void => {
     if (!MONTH_PATTERN.test(value)) return
     setSummaryMonth(value)
@@ -814,17 +901,71 @@ export const TaskBoard = ({
           <table>
             <thead>
               <tr>
-                <th>案件/カテゴリ</th>
-                <th>タスク</th>
-                <th>ステータス</th>
-                <th>優先度</th>
-                <th>見積</th>
-                <th>実績</th>
+                <th>
+                  <button
+                    className="task-table-sort-button"
+                    type="button"
+                    onClick={() => toggleTaskTableSort('projectCategory')}
+                  >
+                    案件/カテゴリ
+                    <span>{buildTaskTableSortIndicator('projectCategory')}</span>
+                  </button>
+                </th>
+                <th>
+                  <button
+                    className="task-table-sort-button"
+                    type="button"
+                    onClick={() => toggleTaskTableSort('title')}
+                  >
+                    タスク
+                    <span>{buildTaskTableSortIndicator('title')}</span>
+                  </button>
+                </th>
+                <th>
+                  <button
+                    className="task-table-sort-button"
+                    type="button"
+                    onClick={() => toggleTaskTableSort('status')}
+                  >
+                    ステータス
+                    <span>{buildTaskTableSortIndicator('status')}</span>
+                  </button>
+                </th>
+                <th>
+                  <button
+                    className="task-table-sort-button"
+                    type="button"
+                    onClick={() => toggleTaskTableSort('priority')}
+                  >
+                    優先度
+                    <span>{buildTaskTableSortIndicator('priority')}</span>
+                  </button>
+                </th>
+                <th>
+                  <button
+                    className="task-table-sort-button"
+                    type="button"
+                    onClick={() => toggleTaskTableSort('estimatedMinutes')}
+                  >
+                    見積
+                    <span>{buildTaskTableSortIndicator('estimatedMinutes')}</span>
+                  </button>
+                </th>
+                <th>
+                  <button
+                    className="task-table-sort-button"
+                    type="button"
+                    onClick={() => toggleTaskTableSort('actualMinutes')}
+                  >
+                    実績
+                    <span>{buildTaskTableSortIndicator('actualMinutes')}</span>
+                  </button>
+                </th>
                 <th>操作</th>
               </tr>
             </thead>
             <tbody>
-              {tasks.map((task) => (
+              {sortedTasks.map((task) => (
                 <tr key={task.id} className={`task-row status-${task.status}`}>
                   <td>
                     <div className="task-cell-title">{task.project}</div>
