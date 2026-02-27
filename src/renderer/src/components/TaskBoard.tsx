@@ -49,6 +49,8 @@ type TaskTableSortKey =
   | 'estimatedMinutes'
   | 'actualMinutes'
 type SortDirection = 'asc' | 'desc'
+type TaskStatusFilter = TaskStatus | 'all'
+type TaskPriorityFilter = TaskPriority | 'all'
 
 const STATUS_OPTIONS: Array<{ value: TaskStatus; label: string }> = [
   { value: 'todo', label: '未着手' },
@@ -60,6 +62,8 @@ const STATUS_OPTIONS: Array<{ value: TaskStatus; label: string }> = [
 ]
 
 const PRIORITY_OPTIONS: TaskPriority[] = ['緊急', '高', '中', '低']
+const ALL_TASK_STATUS_FILTER: TaskStatusFilter = 'all'
+const ALL_TASK_PRIORITY_FILTER: TaskPriorityFilter = 'all'
 const MONTH_PATTERN = /^\d{4}-\d{2}$/
 const YEAR_PATTERN = /^\d{4}$/
 const TASK_STATUS_SORT_ORDER: Record<TaskStatus, number> = {
@@ -218,6 +222,20 @@ const matchesSearchKeyword = (keyword: string, fields: string[]): boolean => {
   return fields.some((field) => field.toLocaleLowerCase('ja').includes(keyword))
 }
 
+const parseFilterMinutesText = (value: string): number | null => {
+  const normalized = normalizeNumericText(value)
+  if (!normalized) return null
+  const numeric = Number(normalized)
+  if (!Number.isFinite(numeric) || numeric < 0) return null
+  return Math.floor(numeric)
+}
+
+const matchesMinutesRange = (minutes: number, min: number | null, max: number | null): boolean => {
+  if (min !== null && minutes < min) return false
+  if (max !== null && minutes > max) return false
+  return true
+}
+
 // タスクの登録・一覧・計測操作を担当するコンポーネント
 export const TaskBoard = ({
   selectedDate,
@@ -279,7 +297,18 @@ export const TaskBoard = ({
   const [summaryPeriodUnit, setSummaryPeriodUnit] = useState<SummaryPeriodUnit>('month')
   const [summaryPeriod, setSummaryPeriod] = useState(selectedDateMonth)
   const [summarySearchKeywordInput, setSummarySearchKeywordInput] = useState('')
+  const [summaryActualMinutesMinInput, setSummaryActualMinutesMinInput] = useState('')
+  const [summaryActualMinutesMaxInput, setSummaryActualMinutesMaxInput] = useState('')
+  const [summaryEstimatedMinutesMinInput, setSummaryEstimatedMinutesMinInput] = useState('')
+  const [summaryEstimatedMinutesMaxInput, setSummaryEstimatedMinutesMaxInput] = useState('')
   const [taskSearchKeywordInput, setTaskSearchKeywordInput] = useState('')
+  const [taskStatusFilter, setTaskStatusFilter] = useState<TaskStatusFilter>(ALL_TASK_STATUS_FILTER)
+  const [taskPriorityFilter, setTaskPriorityFilter] =
+    useState<TaskPriorityFilter>(ALL_TASK_PRIORITY_FILTER)
+  const [taskEstimatedMinutesMinInput, setTaskEstimatedMinutesMinInput] = useState('')
+  const [taskEstimatedMinutesMaxInput, setTaskEstimatedMinutesMaxInput] = useState('')
+  const [taskActualMinutesMinInput, setTaskActualMinutesMinInput] = useState('')
+  const [taskActualMinutesMaxInput, setTaskActualMinutesMaxInput] = useState('')
 
   const projectOptions = useMemo(() => buildOptionList(projectMaster), [projectMaster])
   const categoryOptions = useMemo(
@@ -294,37 +323,155 @@ export const TaskBoard = ({
     () => normalizeSearchKeyword(summarySearchKeywordInput),
     [summarySearchKeywordInput]
   )
+  const summaryActualMinutesMin = useMemo(
+    () => parseFilterMinutesText(summaryActualMinutesMinInput),
+    [summaryActualMinutesMinInput]
+  )
+  const summaryActualMinutesMax = useMemo(
+    () => parseFilterMinutesText(summaryActualMinutesMaxInput),
+    [summaryActualMinutesMaxInput]
+  )
+  const summaryEstimatedMinutesMin = useMemo(
+    () => parseFilterMinutesText(summaryEstimatedMinutesMinInput),
+    [summaryEstimatedMinutesMinInput]
+  )
+  const summaryEstimatedMinutesMax = useMemo(
+    () => parseFilterMinutesText(summaryEstimatedMinutesMaxInput),
+    [summaryEstimatedMinutesMaxInput]
+  )
   const taskSearchKeyword = useMemo(
     () => normalizeSearchKeyword(taskSearchKeywordInput),
     [taskSearchKeywordInput]
   )
+  const taskEstimatedMinutesMin = useMemo(
+    () => parseFilterMinutesText(taskEstimatedMinutesMinInput),
+    [taskEstimatedMinutesMinInput]
+  )
+  const taskEstimatedMinutesMax = useMemo(
+    () => parseFilterMinutesText(taskEstimatedMinutesMaxInput),
+    [taskEstimatedMinutesMaxInput]
+  )
+  const taskActualMinutesMin = useMemo(
+    () => parseFilterMinutesText(taskActualMinutesMinInput),
+    [taskActualMinutesMinInput]
+  )
+  const taskActualMinutesMax = useMemo(
+    () => parseFilterMinutesText(taskActualMinutesMaxInput),
+    [taskActualMinutesMaxInput]
+  )
   const filteredMonthlyProjectActuals = useMemo(
     () =>
-      monthlyProjectActuals.filter((projectActual) =>
-        matchesSearchKeyword(summarySearchKeyword, [projectActual.project])
-      ),
-    [monthlyProjectActuals, summarySearchKeyword]
+      monthlyProjectActuals.filter((projectActual) => {
+        if (!matchesSearchKeyword(summarySearchKeyword, [projectActual.project])) return false
+        if (
+          !matchesMinutesRange(
+            projectActual.actualMinutes,
+            summaryActualMinutesMin,
+            summaryActualMinutesMax
+          )
+        ) {
+          return false
+        }
+        if (
+          !matchesMinutesRange(
+            projectActual.estimatedMinutes,
+            summaryEstimatedMinutesMin,
+            summaryEstimatedMinutesMax
+          )
+        ) {
+          return false
+        }
+        return true
+      }),
+    [
+      monthlyProjectActuals,
+      summarySearchKeyword,
+      summaryActualMinutesMin,
+      summaryActualMinutesMax,
+      summaryEstimatedMinutesMin,
+      summaryEstimatedMinutesMax
+    ]
   )
   const filteredMonthlyCategoryActuals = useMemo(
     () =>
-      monthlyCategoryActuals.filter((categoryActual) =>
-        matchesSearchKeyword(summarySearchKeyword, [
-          categoryActual.project,
-          categoryActual.category
-        ])
-      ),
-    [monthlyCategoryActuals, summarySearchKeyword]
+      monthlyCategoryActuals.filter((categoryActual) => {
+        if (
+          !matchesSearchKeyword(summarySearchKeyword, [
+            categoryActual.project,
+            categoryActual.category
+          ])
+        ) {
+          return false
+        }
+        if (
+          !matchesMinutesRange(
+            categoryActual.actualMinutes,
+            summaryActualMinutesMin,
+            summaryActualMinutesMax
+          )
+        ) {
+          return false
+        }
+        if (
+          !matchesMinutesRange(
+            categoryActual.estimatedMinutes,
+            summaryEstimatedMinutesMin,
+            summaryEstimatedMinutesMax
+          )
+        ) {
+          return false
+        }
+        return true
+      }),
+    [
+      monthlyCategoryActuals,
+      summarySearchKeyword,
+      summaryActualMinutesMin,
+      summaryActualMinutesMax,
+      summaryEstimatedMinutesMin,
+      summaryEstimatedMinutesMax
+    ]
   )
   const filteredMonthlyTitleActuals = useMemo(
     () =>
-      monthlyTitleActuals.filter((titleActual) =>
-        matchesSearchKeyword(summarySearchKeyword, [
-          titleActual.project,
-          titleActual.category,
-          titleActual.title
-        ])
-      ),
-    [monthlyTitleActuals, summarySearchKeyword]
+      monthlyTitleActuals.filter((titleActual) => {
+        if (
+          !matchesSearchKeyword(summarySearchKeyword, [
+            titleActual.project,
+            titleActual.category,
+            titleActual.title
+          ])
+        ) {
+          return false
+        }
+        if (
+          !matchesMinutesRange(
+            titleActual.actualMinutes,
+            summaryActualMinutesMin,
+            summaryActualMinutesMax
+          )
+        ) {
+          return false
+        }
+        if (
+          !matchesMinutesRange(
+            titleActual.estimatedMinutes,
+            summaryEstimatedMinutesMin,
+            summaryEstimatedMinutesMax
+          )
+        ) {
+          return false
+        }
+        return true
+      }),
+    [
+      monthlyTitleActuals,
+      summarySearchKeyword,
+      summaryActualMinutesMin,
+      summaryActualMinutesMax,
+      summaryEstimatedMinutesMin,
+      summaryEstimatedMinutesMax
+    ]
   )
   const sortedMonthlyProjectActuals = useMemo(() => {
     const direction = monthlySummarySortDirection === 'asc' ? 1 : -1
@@ -345,10 +492,43 @@ export const TaskBoard = ({
   }, [filteredMonthlyProjectActuals, monthlySummarySortDirection, monthlySummarySortKey])
   const filteredTasks = useMemo(
     () =>
-      tasks.filter((task) =>
-        matchesSearchKeyword(taskSearchKeyword, [task.project, task.category, task.title])
-      ),
-    [taskSearchKeyword, tasks]
+      tasks.filter((task) => {
+        if (!matchesSearchKeyword(taskSearchKeyword, [task.project, task.category, task.title])) {
+          return false
+        }
+        if (taskStatusFilter !== ALL_TASK_STATUS_FILTER && task.status !== taskStatusFilter) {
+          return false
+        }
+        if (
+          taskPriorityFilter !== ALL_TASK_PRIORITY_FILTER &&
+          task.priority !== taskPriorityFilter
+        ) {
+          return false
+        }
+        if (
+          !matchesMinutesRange(
+            task.estimated.minutes,
+            taskEstimatedMinutesMin,
+            taskEstimatedMinutesMax
+          )
+        ) {
+          return false
+        }
+        if (!matchesMinutesRange(task.actual.minutes, taskActualMinutesMin, taskActualMinutesMax)) {
+          return false
+        }
+        return true
+      }),
+    [
+      taskSearchKeyword,
+      tasks,
+      taskStatusFilter,
+      taskPriorityFilter,
+      taskEstimatedMinutesMin,
+      taskEstimatedMinutesMax,
+      taskActualMinutesMin,
+      taskActualMinutesMax
+    ]
   )
   const sortedTasks = useMemo(() => {
     const direction = taskTableSortDirection === 'asc' ? 1 : -1
@@ -928,6 +1108,82 @@ export const TaskBoard = ({
             </button>
           </div>
         </div>
+        <div className="task-table-filter-row">
+          <label htmlFor="task-filter-status">ステータス</label>
+          <select
+            id="task-filter-status"
+            className="task-filter-select"
+            value={taskStatusFilter}
+            onChange={(event) => setTaskStatusFilter(event.target.value as TaskStatusFilter)}
+          >
+            <option value={ALL_TASK_STATUS_FILTER}>すべて</option>
+            {STATUS_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <label htmlFor="task-filter-priority">優先度</label>
+          <select
+            id="task-filter-priority"
+            className="task-filter-select"
+            value={taskPriorityFilter}
+            onChange={(event) => setTaskPriorityFilter(event.target.value as TaskPriorityFilter)}
+          >
+            <option value={ALL_TASK_PRIORITY_FILTER}>すべて</option>
+            {PRIORITY_OPTIONS.map((priorityOption) => (
+              <option key={priorityOption} value={priorityOption}>
+                {priorityOption}
+              </option>
+            ))}
+          </select>
+          <label htmlFor="task-filter-estimated-min">見積（分）</label>
+          <input
+            id="task-filter-estimated-min"
+            className="task-filter-number-input"
+            type="number"
+            inputMode="numeric"
+            min="0"
+            step="1"
+            value={taskEstimatedMinutesMinInput}
+            onChange={(event) => setTaskEstimatedMinutesMinInput(event.target.value)}
+            placeholder="最小"
+          />
+          <span className="task-filter-range-separator">-</span>
+          <input
+            className="task-filter-number-input"
+            type="number"
+            inputMode="numeric"
+            min="0"
+            step="1"
+            value={taskEstimatedMinutesMaxInput}
+            onChange={(event) => setTaskEstimatedMinutesMaxInput(event.target.value)}
+            placeholder="最大"
+          />
+          <label htmlFor="task-filter-actual-min">実績（分）</label>
+          <input
+            id="task-filter-actual-min"
+            className="task-filter-number-input"
+            type="number"
+            inputMode="numeric"
+            min="0"
+            step="1"
+            value={taskActualMinutesMinInput}
+            onChange={(event) => setTaskActualMinutesMinInput(event.target.value)}
+            placeholder="最小"
+          />
+          <span className="task-filter-range-separator">-</span>
+          <input
+            className="task-filter-number-input"
+            type="number"
+            inputMode="numeric"
+            min="0"
+            step="1"
+            value={taskActualMinutesMaxInput}
+            onChange={(event) => setTaskActualMinutesMaxInput(event.target.value)}
+            placeholder="最大"
+          />
+        </div>
         {errorMessage ? <p className="task-inline-error">{errorMessage}</p> : null}
         <section className="task-monthly-summary">
           <div className="task-monthly-summary-header">
@@ -983,6 +1239,52 @@ export const TaskBoard = ({
                 value={summarySearchKeywordInput}
                 onChange={(event) => setSummarySearchKeywordInput(event.target.value)}
                 placeholder="案件/カテゴリ/タスクで検索"
+              />
+              <label htmlFor="task-monthly-summary-actual-min">実績（分）</label>
+              <input
+                id="task-monthly-summary-actual-min"
+                className="task-monthly-summary-number-input"
+                type="number"
+                inputMode="numeric"
+                min="0"
+                step="1"
+                value={summaryActualMinutesMinInput}
+                onChange={(event) => setSummaryActualMinutesMinInput(event.target.value)}
+                placeholder="最小"
+              />
+              <span className="task-filter-range-separator">-</span>
+              <input
+                className="task-monthly-summary-number-input"
+                type="number"
+                inputMode="numeric"
+                min="0"
+                step="1"
+                value={summaryActualMinutesMaxInput}
+                onChange={(event) => setSummaryActualMinutesMaxInput(event.target.value)}
+                placeholder="最大"
+              />
+              <label htmlFor="task-monthly-summary-estimated-min">見積（分）</label>
+              <input
+                id="task-monthly-summary-estimated-min"
+                className="task-monthly-summary-number-input"
+                type="number"
+                inputMode="numeric"
+                min="0"
+                step="1"
+                value={summaryEstimatedMinutesMinInput}
+                onChange={(event) => setSummaryEstimatedMinutesMinInput(event.target.value)}
+                placeholder="最小"
+              />
+              <span className="task-filter-range-separator">-</span>
+              <input
+                className="task-monthly-summary-number-input"
+                type="number"
+                inputMode="numeric"
+                min="0"
+                step="1"
+                value={summaryEstimatedMinutesMaxInput}
+                onChange={(event) => setSummaryEstimatedMinutesMaxInput(event.target.value)}
+                placeholder="最大"
               />
             </div>
           </div>
