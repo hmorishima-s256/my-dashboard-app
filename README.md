@@ -104,17 +104,24 @@ git ls-files | rg -n "credentials\\.json|token\\.json|client_secret|service_acco
 
 The `タスク` tab provides both daily task management and period-based aggregation.
 
-- Period aggregation
+- Sub tabs in task area
+  - `タスク一覧`: list table only
+  - `タスク集計`: aggregation area only
+- `タスク集計` behavior
   - Switch unit: `月次 (YYYY-MM)` / `年次 (YYYY)`
-  - Aggregation tables: `案件別` / `カテゴリ別` / `タスク別`
+  - The period input defaults to the selected date (`YYYY-MM` or `YYYY`)
+  - Aggregation sections: `案件別` / `カテゴリ別` / `タスク別`
+  - Each section has its own collapse toggle (`▲` / `▼`)
   - Metrics: `合計実績時間` / `合計見積時間` (hour-minute display)
 - Sort
-  - Aggregation table (`案件別`): sort by `案件名` / `合計実績時間` / `合計見積時間` (asc/desc)
-  - Task table: sort by `案件/カテゴリ` / `タスク` / `ステータス` / `優先度` / `見積` / `実績`
+  - `案件別` table: `案件名` / `合計実績時間` / `合計見積時間` (asc/desc)
+  - `タスク一覧` table: `案件/カテゴリ` / `タスク` / `ステータス` / `優先度` / `見積` / `実績`
   - Default task order remains `createdAt asc` (oldest first)
 - Search and filters
-  - Aggregation area: keyword (`案件/カテゴリ/タスク`) + minutes range filters (`実績` / `見積`)
-  - Task table: keyword (`案件/カテゴリ/タスク`) + `ステータス` + `優先度` + minutes range filters (`実績` / `見積`)
+  - `案件別`: keyword (`案件/カテゴリ/タスク`) + minutes range (`実績` / `見積`)
+  - `カテゴリ別`: keyword (`案件/カテゴリ`) + minutes range (`実績` / `見積`)
+  - `タスク別`: keyword (`案件/カテゴリ/タスク`) + minutes range (`実績` / `見積`)
+  - `タスク一覧`: keyword (`案件/カテゴリ/タスク`) + `ステータス` + `優先度` + minutes range (`実績` / `見積`)
 
 ## Project Setup
 
