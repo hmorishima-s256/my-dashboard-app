@@ -815,12 +815,31 @@ code {
   border-top: 1px solid rgba(143, 170, 212, 0.18);
 }
 
+.task-summary-subsection-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px 0;
+}
+
 .task-monthly-summary-subsection h5 {
   margin: 0;
-  padding: 8px 10px 0;
   color: #dbe9ff;
   font-size: 12px;
   font-weight: 700;
+}
+
+.task-summary-subsection-toggle {
+  border: 1px solid rgba(143, 170, 212, 0.28);
+  border-radius: 999px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  color: #eaf4ff;
+  font-size: 11px;
+  background: rgba(10, 18, 34, 0.9);
+  cursor: pointer;
 }
 
 .task-table-card {

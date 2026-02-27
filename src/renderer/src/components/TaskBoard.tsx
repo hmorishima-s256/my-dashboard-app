@@ -272,6 +272,9 @@ export const TaskBoard = ({
   const [summaryActualMinutesMaxInput, setSummaryActualMinutesMaxInput] = useState('')
   const [summaryEstimatedMinutesMinInput, setSummaryEstimatedMinutesMinInput] = useState('')
   const [summaryEstimatedMinutesMaxInput, setSummaryEstimatedMinutesMaxInput] = useState('')
+  const [isProjectSummaryExpanded, setIsProjectSummaryExpanded] = useState(true)
+  const [isCategorySummaryExpanded, setIsCategorySummaryExpanded] = useState(true)
+  const [isTitleSummaryExpanded, setIsTitleSummaryExpanded] = useState(true)
   const [taskSearchKeywordInput, setTaskSearchKeywordInput] = useState('')
   const [taskContentTab, setTaskContentTab] = useState<TaskContentTab>('list')
   const [taskStatusFilter, setTaskStatusFilter] = useState<TaskStatusFilter>(ALL_TASK_STATUS_FILTER)
@@ -1063,10 +1066,7 @@ export const TaskBoard = ({
             className="task-monthly-summary"
           >
             <div className="task-monthly-summary-header">
-              <h4>
-                {summaryPeriodUnit === 'month' ? '案件別実績（月次）' : '案件別実績（年次）'}（
-                {summaryPeriod}）
-              </h4>
+              <h4>タスク集計（{summaryPeriod}）</h4>
               <div className="task-monthly-summary-controls">
                 <label htmlFor="task-monthly-summary-unit">単位</label>
                 <select
@@ -1164,146 +1164,200 @@ export const TaskBoard = ({
                 />
               </div>
             </div>
-            {monthlyProjectActuals.length === 0 && !isLoading ? (
-              <p className="task-monthly-summary-empty">対象期間の案件集計データはありません。</p>
-            ) : sortedMonthlyProjectActuals.length === 0 && !isLoading ? (
-              <p className="task-monthly-summary-empty">検索条件に一致する案件集計はありません。</p>
-            ) : (
-              <div className="task-monthly-summary-table-wrap">
-                <table className="task-monthly-summary-table">
-                  <thead>
-                    <tr>
-                      <th>
-                        <button
-                          className="task-monthly-summary-sort-button"
-                          type="button"
-                          onClick={() => toggleMonthlySummarySort('project')}
-                        >
-                          案件名
-                          <span>{buildMonthlySummarySortIndicator('project')}</span>
-                        </button>
-                      </th>
-                      <th className="task-monthly-summary-numeric">
-                        <button
-                          className="task-monthly-summary-sort-button"
-                          type="button"
-                          onClick={() => toggleMonthlySummarySort('actualMinutes')}
-                        >
-                          合計実績時間
-                          <span>{buildMonthlySummarySortIndicator('actualMinutes')}</span>
-                        </button>
-                      </th>
-                      <th className="task-monthly-summary-numeric">
-                        <button
-                          className="task-monthly-summary-sort-button"
-                          type="button"
-                          onClick={() => toggleMonthlySummarySort('estimatedMinutes')}
-                        >
-                          合計見積時間
-                          <span>{buildMonthlySummarySortIndicator('estimatedMinutes')}</span>
-                        </button>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedMonthlyProjectActuals.map((projectActual) => (
-                      <tr key={projectActual.project}>
-                        <td>{projectActual.project}</td>
-                        <td className="task-monthly-summary-numeric">
-                          {formatMinutesAsHourMinute(projectActual.actualMinutes)}
-                        </td>
-                        <td className="task-monthly-summary-numeric">
-                          {formatMinutesAsHourMinute(projectActual.estimatedMinutes)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
             <div className="task-monthly-summary-subsection">
-              <h5>カテゴリ別集計</h5>
-              {monthlyCategoryActuals.length === 0 && !isLoading ? (
-                <p className="task-monthly-summary-empty">
-                  対象期間のカテゴリ集計データはありません。
-                </p>
-              ) : filteredMonthlyCategoryActuals.length === 0 && !isLoading ? (
-                <p className="task-monthly-summary-empty">
-                  検索条件に一致するカテゴリ集計はありません。
-                </p>
-              ) : (
-                <div className="task-monthly-summary-table-wrap">
-                  <table className="task-monthly-summary-table">
-                    <thead>
-                      <tr>
-                        <th>案件名</th>
-                        <th>カテゴリ</th>
-                        <th className="task-monthly-summary-numeric">合計実績時間</th>
-                        <th className="task-monthly-summary-numeric">合計見積時間</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredMonthlyCategoryActuals.map((categoryActual) => (
-                        <tr key={`${categoryActual.project}-${categoryActual.category}`}>
-                          <td>{categoryActual.project}</td>
-                          <td>{categoryActual.category}</td>
-                          <td className="task-monthly-summary-numeric">
-                            {formatMinutesAsHourMinute(categoryActual.actualMinutes)}
-                          </td>
-                          <td className="task-monthly-summary-numeric">
-                            {formatMinutesAsHourMinute(categoryActual.estimatedMinutes)}
-                          </td>
+              <div className="task-summary-subsection-header">
+                <h5>案件別集計</h5>
+                <button
+                  className="task-summary-subsection-toggle"
+                  type="button"
+                  aria-label={
+                    isProjectSummaryExpanded ? '案件別集計を折りたたむ' : '案件別集計を展開する'
+                  }
+                  aria-expanded={isProjectSummaryExpanded}
+                  onClick={() => setIsProjectSummaryExpanded((previous) => !previous)}
+                >
+                  {isProjectSummaryExpanded ? '▲' : '▼'}
+                </button>
+              </div>
+              {isProjectSummaryExpanded ? (
+                monthlyProjectActuals.length === 0 && !isLoading ? (
+                  <p className="task-monthly-summary-empty">
+                    対象期間の案件集計データはありません。
+                  </p>
+                ) : sortedMonthlyProjectActuals.length === 0 && !isLoading ? (
+                  <p className="task-monthly-summary-empty">
+                    検索条件に一致する案件集計はありません。
+                  </p>
+                ) : (
+                  <div className="task-monthly-summary-table-wrap">
+                    <table className="task-monthly-summary-table">
+                      <thead>
+                        <tr>
+                          <th>
+                            <button
+                              className="task-monthly-summary-sort-button"
+                              type="button"
+                              onClick={() => toggleMonthlySummarySort('project')}
+                            >
+                              案件名
+                              <span>{buildMonthlySummarySortIndicator('project')}</span>
+                            </button>
+                          </th>
+                          <th className="task-monthly-summary-numeric">
+                            <button
+                              className="task-monthly-summary-sort-button"
+                              type="button"
+                              onClick={() => toggleMonthlySummarySort('actualMinutes')}
+                            >
+                              合計実績時間
+                              <span>{buildMonthlySummarySortIndicator('actualMinutes')}</span>
+                            </button>
+                          </th>
+                          <th className="task-monthly-summary-numeric">
+                            <button
+                              className="task-monthly-summary-sort-button"
+                              type="button"
+                              onClick={() => toggleMonthlySummarySort('estimatedMinutes')}
+                            >
+                              合計見積時間
+                              <span>{buildMonthlySummarySortIndicator('estimatedMinutes')}</span>
+                            </button>
+                          </th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                      </thead>
+                      <tbody>
+                        {sortedMonthlyProjectActuals.map((projectActual) => (
+                          <tr key={projectActual.project}>
+                            <td>{projectActual.project}</td>
+                            <td className="task-monthly-summary-numeric">
+                              {formatMinutesAsHourMinute(projectActual.actualMinutes)}
+                            </td>
+                            <td className="task-monthly-summary-numeric">
+                              {formatMinutesAsHourMinute(projectActual.estimatedMinutes)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )
+              ) : null}
             </div>
 
             <div className="task-monthly-summary-subsection">
-              <h5>タスク別集計</h5>
-              {monthlyTitleActuals.length === 0 && !isLoading ? (
-                <p className="task-monthly-summary-empty">
-                  対象期間のタスク集計データはありません。
-                </p>
-              ) : filteredMonthlyTitleActuals.length === 0 && !isLoading ? (
-                <p className="task-monthly-summary-empty">
-                  検索条件に一致するタスク集計はありません。
-                </p>
-              ) : (
-                <div className="task-monthly-summary-table-wrap">
-                  <table className="task-monthly-summary-table">
-                    <thead>
-                      <tr>
-                        <th>案件名</th>
-                        <th>カテゴリ</th>
-                        <th>タスク</th>
-                        <th className="task-monthly-summary-numeric">合計実績時間</th>
-                        <th className="task-monthly-summary-numeric">合計見積時間</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredMonthlyTitleActuals.map((titleActual) => (
-                        <tr
-                          key={`${titleActual.project}-${titleActual.category}-${titleActual.title}`}
-                        >
-                          <td>{titleActual.project}</td>
-                          <td>{titleActual.category}</td>
-                          <td>{titleActual.title}</td>
-                          <td className="task-monthly-summary-numeric">
-                            {formatMinutesAsHourMinute(titleActual.actualMinutes)}
-                          </td>
-                          <td className="task-monthly-summary-numeric">
-                            {formatMinutesAsHourMinute(titleActual.estimatedMinutes)}
-                          </td>
+              <div className="task-summary-subsection-header">
+                <h5>カテゴリ別集計</h5>
+                <button
+                  className="task-summary-subsection-toggle"
+                  type="button"
+                  aria-label={
+                    isCategorySummaryExpanded
+                      ? 'カテゴリ別集計を折りたたむ'
+                      : 'カテゴリ別集計を展開する'
+                  }
+                  aria-expanded={isCategorySummaryExpanded}
+                  onClick={() => setIsCategorySummaryExpanded((previous) => !previous)}
+                >
+                  {isCategorySummaryExpanded ? '▲' : '▼'}
+                </button>
+              </div>
+              {isCategorySummaryExpanded ? (
+                monthlyCategoryActuals.length === 0 && !isLoading ? (
+                  <p className="task-monthly-summary-empty">
+                    対象期間のカテゴリ集計データはありません。
+                  </p>
+                ) : filteredMonthlyCategoryActuals.length === 0 && !isLoading ? (
+                  <p className="task-monthly-summary-empty">
+                    検索条件に一致するカテゴリ集計はありません。
+                  </p>
+                ) : (
+                  <div className="task-monthly-summary-table-wrap">
+                    <table className="task-monthly-summary-table">
+                      <thead>
+                        <tr>
+                          <th>案件名</th>
+                          <th>カテゴリ</th>
+                          <th className="task-monthly-summary-numeric">合計実績時間</th>
+                          <th className="task-monthly-summary-numeric">合計見積時間</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                      </thead>
+                      <tbody>
+                        {filteredMonthlyCategoryActuals.map((categoryActual) => (
+                          <tr key={`${categoryActual.project}-${categoryActual.category}`}>
+                            <td>{categoryActual.project}</td>
+                            <td>{categoryActual.category}</td>
+                            <td className="task-monthly-summary-numeric">
+                              {formatMinutesAsHourMinute(categoryActual.actualMinutes)}
+                            </td>
+                            <td className="task-monthly-summary-numeric">
+                              {formatMinutesAsHourMinute(categoryActual.estimatedMinutes)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )
+              ) : null}
+            </div>
+
+            <div className="task-monthly-summary-subsection">
+              <div className="task-summary-subsection-header">
+                <h5>タスク別集計</h5>
+                <button
+                  className="task-summary-subsection-toggle"
+                  type="button"
+                  aria-label={
+                    isTitleSummaryExpanded ? 'タスク別集計を折りたたむ' : 'タスク別集計を展開する'
+                  }
+                  aria-expanded={isTitleSummaryExpanded}
+                  onClick={() => setIsTitleSummaryExpanded((previous) => !previous)}
+                >
+                  {isTitleSummaryExpanded ? '▲' : '▼'}
+                </button>
+              </div>
+              {isTitleSummaryExpanded ? (
+                monthlyTitleActuals.length === 0 && !isLoading ? (
+                  <p className="task-monthly-summary-empty">
+                    対象期間のタスク集計データはありません。
+                  </p>
+                ) : filteredMonthlyTitleActuals.length === 0 && !isLoading ? (
+                  <p className="task-monthly-summary-empty">
+                    検索条件に一致するタスク集計はありません。
+                  </p>
+                ) : (
+                  <div className="task-monthly-summary-table-wrap">
+                    <table className="task-monthly-summary-table">
+                      <thead>
+                        <tr>
+                          <th>案件名</th>
+                          <th>カテゴリ</th>
+                          <th>タスク</th>
+                          <th className="task-monthly-summary-numeric">合計実績時間</th>
+                          <th className="task-monthly-summary-numeric">合計見積時間</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredMonthlyTitleActuals.map((titleActual) => (
+                          <tr
+                            key={`${titleActual.project}-${titleActual.category}-${titleActual.title}`}
+                          >
+                            <td>{titleActual.project}</td>
+                            <td>{titleActual.category}</td>
+                            <td>{titleActual.title}</td>
+                            <td className="task-monthly-summary-numeric">
+                              {formatMinutesAsHourMinute(titleActual.actualMinutes)}
+                            </td>
+                            <td className="task-monthly-summary-numeric">
+                              {formatMinutesAsHourMinute(titleActual.estimatedMinutes)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )
+              ) : null}
             </div>
           </section>
         ) : null}
