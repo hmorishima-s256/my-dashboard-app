@@ -51,6 +51,7 @@ const STATUS_OPTIONS: Array<{ value: TaskStatus; label: string }> = [
 ]
 
 const PRIORITY_OPTIONS: TaskPriority[] = ['緊急', '高', '中', '低']
+const MONTH_PATTERN = /^\d{4}-\d{2}$/
 
 const selectStyles: StylesConfig<SelectOption, false> = {
   control: (base, state) => ({
@@ -234,7 +235,8 @@ export const TaskBoard = ({
 
   const currentUserId = currentUser?.email ?? GUEST_USER_ID
   const isGuest = currentUserId === GUEST_USER_ID
-  const selectedMonth = selectedDate.slice(0, 7)
+  const selectedDateMonth = selectedDate.slice(0, 7)
+  const [summaryMonth, setSummaryMonth] = useState(selectedDateMonth)
 
   const projectOptions = useMemo(() => buildOptionList(projectMaster), [projectMaster])
   const categoryOptions = useMemo(
@@ -293,7 +295,7 @@ export const TaskBoard = ({
     try {
       const [taskResponse, monthlySummaryResponse] = await Promise.all([
         window.api.taskGetAll(currentUserId, selectedDate),
-        window.api.taskGetMonthlyProjectActuals(currentUserId, selectedMonth)
+        window.api.taskGetMonthlyProjectActuals(currentUserId, summaryMonth)
       ])
       setTasks(taskResponse.tasks)
       setProjectMaster(taskResponse.projects)
@@ -306,11 +308,15 @@ export const TaskBoard = ({
     } finally {
       setIsLoading(false)
     }
-  }, [currentUserId, selectedDate, selectedMonth])
+  }, [currentUserId, selectedDate, summaryMonth])
 
   useEffect(() => {
     void loadTaskData()
   }, [loadTaskData])
+
+  useEffect(() => {
+    setSummaryMonth(selectedDateMonth)
+  }, [selectedDateMonth])
 
   const resetForm = (): void => {
     setProject('')
@@ -728,6 +734,11 @@ export const TaskBoard = ({
     return monthlySummarySortDirection === 'asc' ? '▲' : '▼'
   }
 
+  const handleChangeSummaryMonth = (value: string): void => {
+    if (!MONTH_PATTERN.test(value)) return
+    setSummaryMonth(value)
+  }
+
   return (
     <main className="task-board">
       <section className="task-table-card">
@@ -746,7 +757,17 @@ export const TaskBoard = ({
         {errorMessage ? <p className="task-inline-error">{errorMessage}</p> : null}
         <section className="task-monthly-summary">
           <div className="task-monthly-summary-header">
-            <h4>案件別実績（{selectedMonth}）</h4>
+            <h4>案件別実績（{summaryMonth}）</h4>
+            <div className="task-monthly-summary-controls">
+              <label htmlFor="task-monthly-summary-month">対象月</label>
+              <input
+                id="task-monthly-summary-month"
+                className="task-monthly-summary-month-input"
+                type="month"
+                value={summaryMonth}
+                onChange={(event) => handleChangeSummaryMonth(event.target.value)}
+              />
+            </div>
           </div>
           {monthlyProjectActuals.length === 0 && !isLoading ? (
             <p className="task-monthly-summary-empty">対象月の実績タスクはありません。</p>
