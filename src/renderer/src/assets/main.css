@@ -874,6 +874,18 @@ code {
   background: rgba(15, 28, 53, 0.95);
 }
 
+.task-table-sort-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
 .task-cell-title {
   color: #f1f6ff;
   font-weight: 700;
