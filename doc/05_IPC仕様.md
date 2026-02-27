@@ -8,24 +8,27 @@
 
 ## 5.2 Preload公開API（`window.api`）
 
-| API                        | 引数                                 | 戻り値                         | 用途                          |
-| -------------------------- | ------------------------------------ | ------------------------------ | ----------------------------- |
-| `getCalendar`              | `targetDate?: string`                | `Promise<CalendarTableRow[]>`  | 指定日予定を手動同期          |
-| `getSettings`              | なし                                 | `Promise<AppSettings>`         | 設定取得                      |
-| `saveSettings`             | `AppSettings`                        | `Promise<AppSettings>`         | 設定保存                      |
-| `getDefaultProfileIconUrl` | なし                                 | `Promise<string>`              | 共有デフォルトアイコンURL取得 |
-| `taskGetAll`               | `userId: string, targetDate: string` | `Promise<TaskListResponse>`    | 指定日タスク取得              |
-| `taskAdd`                  | `TaskCreateInput`                    | `Promise<Task>`                | タスク追加                    |
-| `taskUpdate`               | `Task`                               | `Promise<Task \| null>`        | タスク更新                    |
-| `taskDelete`               | `taskId: string`                     | `Promise<boolean>`             | タスク削除                    |
-| `authLogin`                | なし                                 | `Promise<AuthLoginResult>`     | Googleログイン                |
-| `authLogout`               | なし                                 | `Promise<AuthLogoutResult>`    | ログアウト                    |
-| `authGetCurrentUser`       | なし                                 | `Promise<UserProfile \| null>` | 現在ユーザー取得              |
-| `onCalendarUpdated`        | `callback`                           | `unsubscribe`                  | 予定更新通知購読              |
+| API                            | 引数                                 | 戻り値                                       | 用途                                 |
+| ------------------------------ | ------------------------------------ | -------------------------------------------- | ------------------------------------ |
+| `getCalendar`                  | `targetDate?: string`                | `Promise<CalendarTableRow[]>`                | 指定日予定を手動同期                 |
+| `getSettings`                  | なし                                 | `Promise<AppSettings>`                       | 設定取得                             |
+| `saveSettings`                 | `AppSettings`                        | `Promise<AppSettings>`                       | 設定保存                             |
+| `getDefaultProfileIconUrl`     | なし                                 | `Promise<string>`                            | 共有デフォルトアイコンURL取得        |
+| `taskGetAll`                   | `userId: string, targetDate: string` | `Promise<TaskListResponse>`                  | 指定日タスク取得                     |
+| `taskGetMonthlyProjectActuals` | `userId: string, period: string`     | `Promise<TaskMonthlyProjectActualsResponse>` | 期間集計（案件/カテゴリ/タスク）取得 |
+| `taskAdd`                      | `TaskCreateInput`                    | `Promise<Task>`                              | タスク追加                           |
+| `taskUpdate`                   | `Task`                               | `Promise<Task \| null>`                      | タスク更新                           |
+| `taskDelete`                   | `taskId: string`                     | `Promise<boolean>`                           | タスク削除                           |
+| `authLogin`                    | なし                                 | `Promise<AuthLoginResult>`                   | Googleログイン                       |
+| `authLogout`                   | なし                                 | `Promise<AuthLogoutResult>`                  | ログアウト                           |
+| `authGetCurrentUser`           | なし                                 | `Promise<UserProfile \| null>`               | 現在ユーザー取得                     |
+| `onCalendarUpdated`            | `callback`                           | `unsubscribe`                                | 予定更新通知購読                     |
 
 注記:
 
 - `taskGetAll` の `userId` は後方互換のため受け取るが、Main側では現在ログインユーザーを基準に解決する。
+- `taskGetMonthlyProjectActuals` の `period` は `YYYY-MM`（月次）または `YYYY`（年次）。
+- `taskGetMonthlyProjectActuals` の `userId` も後方互換引数で、Main側は現在ログインユーザー基準で解決する。
 
 ## 5.3 Main IPCハンドラ
 
@@ -46,6 +49,10 @@
 
 - `task:get-all`
   - 不正日付は当日へフォールバック
+- `task:get-monthly-project-actuals`
+  - 不正期間は当月（`YYYY-MM`）へフォールバック
+  - `period` の形式に応じて `periodUnit: 'month' | 'year'` を返却
+  - 集計結果は `projectActuals` / `categoryActuals` / `titleActuals` を返却
 - `task:add`
 - `task:update`
 - `task:delete`
@@ -70,7 +77,7 @@
 
 - `AppSettings`
 - `UserProfile`
-- `Task`, `TaskCreateInput`, `TaskListResponse`
+- `Task`, `TaskCreateInput`, `TaskListResponse`, `TaskMonthlyProjectActualsResponse`
 - `CalendarTableRow`, `CalendarUpdatePayload`
 
 ## 5.6 変更時の更新ルール
