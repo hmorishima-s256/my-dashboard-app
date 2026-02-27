@@ -703,9 +703,62 @@ code {
   font-size: 12px;
 }
 
-.task-table-card {
+.task-monthly-summary {
+  margin: 8px 12px 0;
+  border: 1px solid rgba(143, 170, 212, 0.2);
+  border-radius: 10px;
+  background: rgba(9, 17, 32, 0.55);
+}
+
+.task-monthly-summary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(143, 170, 212, 0.18);
+}
+
+.task-monthly-summary-header h4 {
+  margin: 0;
+  color: #eaf4ff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.task-monthly-summary-list {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 6px;
+  padding: 8px 10px;
+}
+
+.task-monthly-summary-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.task-monthly-summary-project {
+  color: #f1f6ff;
+  font-weight: 600;
+}
+
+.task-monthly-summary-minutes {
+  color: #d5e3f9;
+  font-variant-numeric: tabular-nums;
+}
+
+.task-monthly-summary-empty {
+  margin: 0;
+  color: var(--dash-text-muted);
+  font-size: 12px;
+}
+
+.task-table-card {
+  display: flex;
+  flex-direction: column;
   min-height: 0;
 }
 
@@ -750,6 +803,7 @@ code {
 }
 
 .task-table-scroll {
+  flex: 1;
   min-height: 0;
   overflow: auto;
 }

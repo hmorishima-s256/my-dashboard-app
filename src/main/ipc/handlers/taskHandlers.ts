@@ -3,6 +3,7 @@ import type { Task, TaskCreateInput } from '../../../shared/contracts'
 import type { MainIpcHandlerDependencies } from './types'
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
+const MONTH_PATTERN = /^\d{4}-\d{2}$/
 
 // タスク関連 IPC を登録する
 export const registerTaskHandlers = (dependencies: MainIpcHandlerDependencies): void => {
@@ -14,6 +15,18 @@ export const registerTaskHandlers = (dependencies: MainIpcHandlerDependencies): 
           ? targetDate
           : dependencies.buildDateKey(new Date())
       return await dependencies.taskGetAll(requestedDate)
+    }
+  )
+
+  ipcMain.handle(
+    'task:get-monthly-project-actuals',
+    async (_event, _userId: string | undefined, targetMonth?: string) => {
+      const fallbackMonth = dependencies.buildDateKey(new Date()).slice(0, 7)
+      const requestedMonth =
+        typeof targetMonth === 'string' && MONTH_PATTERN.test(targetMonth)
+          ? targetMonth
+          : fallbackMonth
+      return await dependencies.taskGetMonthlyProjectActuals(requestedMonth)
     }
   )
 
