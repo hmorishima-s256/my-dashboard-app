@@ -704,7 +704,10 @@ code {
 }
 
 .task-monthly-summary {
-  margin: 8px 12px 0;
+  margin: 8px 12px 12px;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
   border: 1px solid rgba(143, 170, 212, 0.2);
   border-radius: 10px;
   background: rgba(9, 17, 32, 0.55);
