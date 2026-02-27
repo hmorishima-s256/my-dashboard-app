@@ -149,7 +149,8 @@ describe('taskStoreService', () => {
     )
 
     await expect(taskStore.getMonthlyProjectActuals('2026-02')).resolves.toEqual({
-      month: '2026-02',
+      period: '2026-02',
+      periodUnit: 'month',
       projectActuals: [
         { project: '案件A', actualMinutes: 90, estimatedMinutes: 120 },
         { project: '案件B', actualMinutes: 45, estimatedMinutes: 60 }
@@ -178,6 +179,51 @@ describe('taskStoreService', () => {
           category: '設計',
           title: '集計B1',
           actualMinutes: 45,
+          estimatedMinutes: 60
+        }
+      ]
+    })
+
+    await expect(taskStore.getMonthlyProjectActuals('2026')).resolves.toEqual({
+      period: '2026',
+      periodUnit: 'year',
+      projectActuals: [
+        { project: '案件A', actualMinutes: 90, estimatedMinutes: 120 },
+        { project: '案件B', actualMinutes: 45, estimatedMinutes: 60 },
+        { project: '案件C', actualMinutes: 120, estimatedMinutes: 60 }
+      ],
+      categoryActuals: [
+        { project: '案件A', category: '設計', actualMinutes: 90, estimatedMinutes: 120 },
+        { project: '案件B', category: '設計', actualMinutes: 45, estimatedMinutes: 60 },
+        { project: '案件C', category: '設計', actualMinutes: 120, estimatedMinutes: 60 }
+      ],
+      titleActuals: [
+        {
+          project: '案件A',
+          category: '設計',
+          title: '集計A1',
+          actualMinutes: 30,
+          estimatedMinutes: 60
+        },
+        {
+          project: '案件A',
+          category: '設計',
+          title: '集計A2',
+          actualMinutes: 60,
+          estimatedMinutes: 60
+        },
+        {
+          project: '案件B',
+          category: '設計',
+          title: '集計B1',
+          actualMinutes: 45,
+          estimatedMinutes: 60
+        },
+        {
+          project: '案件C',
+          category: '設計',
+          title: '集計C1',
+          actualMinutes: 120,
           estimatedMinutes: 60
         }
       ]

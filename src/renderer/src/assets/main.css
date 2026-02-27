@@ -738,7 +738,9 @@ code {
   font-weight: 700;
 }
 
-.task-monthly-summary-month-input {
+.task-monthly-summary-month-input,
+.task-monthly-summary-year-input,
+.task-monthly-summary-unit-select {
   border: 1px solid var(--dash-line);
   border-radius: 8px;
   height: 30px;
@@ -746,6 +748,10 @@ code {
   color: #eaf4ff;
   font-size: 12px;
   background: rgba(10, 18, 34, 0.95);
+}
+
+.task-monthly-summary-year-input {
+  width: 88px;
 }
 
 .task-monthly-summary-table-wrap {

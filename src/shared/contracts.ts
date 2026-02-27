@@ -134,7 +134,8 @@ export type TitleMonthlyActual = {
 }
 
 export type TaskMonthlyProjectActualsResponse = {
-  month: string
+  period: string
+  periodUnit: 'month' | 'year'
   projectActuals: ProjectMonthlyActual[]
   categoryActuals: CategoryMonthlyActual[]
   titleActuals: TitleMonthlyActual[]

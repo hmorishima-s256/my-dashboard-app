@@ -39,6 +39,7 @@ type SelectOption = {
 type DurationUnit = 'hourMinute' | 'decimalHours' | 'minutes'
 type TaskModalMode = 'create' | 'edit'
 type MonthlySummarySortKey = 'project' | 'actualMinutes' | 'estimatedMinutes'
+type SummaryPeriodUnit = 'month' | 'year'
 type TaskTableSortKey =
   | 'createdAt'
   | 'projectCategory'
@@ -60,6 +61,7 @@ const STATUS_OPTIONS: Array<{ value: TaskStatus; label: string }> = [
 
 const PRIORITY_OPTIONS: TaskPriority[] = ['緊急', '高', '中', '低']
 const MONTH_PATTERN = /^\d{4}-\d{2}$/
+const YEAR_PATTERN = /^\d{4}$/
 const TASK_STATUS_SORT_ORDER: Record<TaskStatus, number> = {
   todo: 0,
   doing: 1,
@@ -265,8 +267,10 @@ export const TaskBoard = ({
 
   const currentUserId = currentUser?.email ?? GUEST_USER_ID
   const isGuest = currentUserId === GUEST_USER_ID
+  const selectedDateYear = selectedDate.slice(0, 4)
   const selectedDateMonth = selectedDate.slice(0, 7)
-  const [summaryMonth, setSummaryMonth] = useState(selectedDateMonth)
+  const [summaryPeriodUnit, setSummaryPeriodUnit] = useState<SummaryPeriodUnit>('month')
+  const [summaryPeriod, setSummaryPeriod] = useState(selectedDateMonth)
 
   const projectOptions = useMemo(() => buildOptionList(projectMaster), [projectMaster])
   const categoryOptions = useMemo(
@@ -378,7 +382,7 @@ export const TaskBoard = ({
     try {
       const [taskResponse, monthlySummaryResponse] = await Promise.all([
         window.api.taskGetAll(currentUserId, selectedDate),
-        window.api.taskGetMonthlyProjectActuals(currentUserId, summaryMonth)
+        window.api.taskGetMonthlyProjectActuals(currentUserId, summaryPeriod)
       ])
       setTasks(taskResponse.tasks)
       setProjectMaster(taskResponse.projects)
@@ -393,15 +397,15 @@ export const TaskBoard = ({
     } finally {
       setIsLoading(false)
     }
-  }, [currentUserId, selectedDate, summaryMonth])
+  }, [currentUserId, selectedDate, summaryPeriod])
 
   useEffect(() => {
     void loadTaskData()
   }, [loadTaskData])
 
   useEffect(() => {
-    setSummaryMonth(selectedDateMonth)
-  }, [selectedDateMonth])
+    setSummaryPeriod(summaryPeriodUnit === 'month' ? selectedDateMonth : selectedDateYear)
+  }, [selectedDateMonth, selectedDateYear, summaryPeriodUnit])
 
   const resetForm = (): void => {
     setProject('')
@@ -833,9 +837,19 @@ export const TaskBoard = ({
     return taskTableSortDirection === 'asc' ? '▲' : '▼'
   }
 
-  const handleChangeSummaryMonth = (value: string): void => {
-    if (!MONTH_PATTERN.test(value)) return
-    setSummaryMonth(value)
+  const handleChangeSummaryPeriodUnit = (value: SummaryPeriodUnit): void => {
+    setSummaryPeriodUnit(value)
+    setSummaryPeriod(value === 'month' ? selectedDateMonth : selectedDateYear)
+  }
+
+  const handleChangeSummaryPeriod = (value: string): void => {
+    if (summaryPeriodUnit === 'month') {
+      if (!MONTH_PATTERN.test(value)) return
+      setSummaryPeriod(value)
+      return
+    }
+    if (!YEAR_PATTERN.test(value)) return
+    setSummaryPeriod(value)
   }
 
   return (
@@ -856,20 +870,54 @@ export const TaskBoard = ({
         {errorMessage ? <p className="task-inline-error">{errorMessage}</p> : null}
         <section className="task-monthly-summary">
           <div className="task-monthly-summary-header">
-            <h4>案件別実績（{summaryMonth}）</h4>
+            <h4>
+              {summaryPeriodUnit === 'month' ? '案件別実績（月次）' : '案件別実績（年次）'}（
+              {summaryPeriod}）
+            </h4>
             <div className="task-monthly-summary-controls">
-              <label htmlFor="task-monthly-summary-month">対象月</label>
-              <input
-                id="task-monthly-summary-month"
-                className="task-monthly-summary-month-input"
-                type="month"
-                value={summaryMonth}
-                onChange={(event) => handleChangeSummaryMonth(event.target.value)}
-              />
+              <label htmlFor="task-monthly-summary-unit">単位</label>
+              <select
+                id="task-monthly-summary-unit"
+                className="task-monthly-summary-unit-select"
+                value={summaryPeriodUnit}
+                onChange={(event) =>
+                  handleChangeSummaryPeriodUnit(event.target.value as SummaryPeriodUnit)
+                }
+              >
+                <option value="month">月次</option>
+                <option value="year">年次</option>
+              </select>
+              {summaryPeriodUnit === 'month' ? (
+                <>
+                  <label htmlFor="task-monthly-summary-period-month">対象月</label>
+                  <input
+                    id="task-monthly-summary-period-month"
+                    className="task-monthly-summary-month-input"
+                    type="month"
+                    value={summaryPeriod}
+                    onChange={(event) => handleChangeSummaryPeriod(event.target.value)}
+                  />
+                </>
+              ) : (
+                <>
+                  <label htmlFor="task-monthly-summary-period-year">対象年</label>
+                  <input
+                    id="task-monthly-summary-period-year"
+                    className="task-monthly-summary-year-input"
+                    type="number"
+                    inputMode="numeric"
+                    min="2000"
+                    max="9999"
+                    step="1"
+                    value={summaryPeriod}
+                    onChange={(event) => handleChangeSummaryPeriod(event.target.value)}
+                  />
+                </>
+              )}
             </div>
           </div>
           {monthlyProjectActuals.length === 0 && !isLoading ? (
-            <p className="task-monthly-summary-empty">対象月の案件集計データはありません。</p>
+            <p className="task-monthly-summary-empty">対象期間の案件集計データはありません。</p>
           ) : (
             <div className="task-monthly-summary-table-wrap">
               <table className="task-monthly-summary-table">
@@ -927,7 +975,9 @@ export const TaskBoard = ({
           <div className="task-monthly-summary-subsection">
             <h5>カテゴリ別集計</h5>
             {monthlyCategoryActuals.length === 0 && !isLoading ? (
-              <p className="task-monthly-summary-empty">対象月のカテゴリ集計データはありません。</p>
+              <p className="task-monthly-summary-empty">
+                対象期間のカテゴリ集計データはありません。
+              </p>
             ) : (
               <div className="task-monthly-summary-table-wrap">
                 <table className="task-monthly-summary-table">
@@ -961,7 +1011,7 @@ export const TaskBoard = ({
           <div className="task-monthly-summary-subsection">
             <h5>タスク別集計</h5>
             {monthlyTitleActuals.length === 0 && !isLoading ? (
-              <p className="task-monthly-summary-empty">対象月のタスク集計データはありません。</p>
+              <p className="task-monthly-summary-empty">対象期間のタスク集計データはありません。</p>
             ) : (
               <div className="task-monthly-summary-table-wrap">
                 <table className="task-monthly-summary-table">

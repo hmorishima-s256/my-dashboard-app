@@ -26,7 +26,7 @@ declare global {
       taskGetAll: (userId: string, targetDate: string) => Promise<TaskListResponse>
       taskGetMonthlyProjectActuals: (
         userId: string,
-        targetMonth: string
+        targetPeriod: string
       ) => Promise<TaskMonthlyProjectActualsResponse>
       taskAdd: (taskInput: TaskCreateInput) => Promise<Task>
       taskUpdate: (task: Task) => Promise<Task | null>

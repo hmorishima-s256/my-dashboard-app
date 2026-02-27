@@ -24,11 +24,11 @@ const api = {
     ipcRenderer.invoke('get-default-profile-icon-url') as Promise<string>,
   taskGetAll: (userId: string, targetDate: string) =>
     ipcRenderer.invoke('task:get-all', userId, targetDate) as Promise<TaskListResponse>,
-  taskGetMonthlyProjectActuals: (userId: string, targetMonth: string) =>
+  taskGetMonthlyProjectActuals: (userId: string, targetPeriod: string) =>
     ipcRenderer.invoke(
       'task:get-monthly-project-actuals',
       userId,
-      targetMonth
+      targetPeriod
     ) as Promise<TaskMonthlyProjectActualsResponse>,
   taskAdd: (taskInput: TaskCreateInput) =>
     ipcRenderer.invoke('task:add', taskInput) as Promise<Task>,
