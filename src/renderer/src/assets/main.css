@@ -786,8 +786,8 @@ code {
   color: #f1f6ff;
 }
 
-.task-monthly-summary-table th:last-child,
-.task-monthly-summary-table td:last-child {
+.task-monthly-summary-table th.task-monthly-summary-numeric,
+.task-monthly-summary-table td.task-monthly-summary-numeric {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }

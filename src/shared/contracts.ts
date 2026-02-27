@@ -115,6 +115,7 @@ export type TaskListResponse = {
 export type ProjectMonthlyActual = {
   project: string
   actualMinutes: number
+  estimatedMinutes: number
 }
 
 export type TaskMonthlyProjectActualsResponse = {

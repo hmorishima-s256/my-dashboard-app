@@ -151,8 +151,8 @@ describe('taskStoreService', () => {
     await expect(taskStore.getMonthlyProjectActuals('2026-02')).resolves.toEqual({
       month: '2026-02',
       projectActuals: [
-        { project: '案件A', actualMinutes: 90 },
-        { project: '案件B', actualMinutes: 45 }
+        { project: '案件A', actualMinutes: 90, estimatedMinutes: 120 },
+        { project: '案件B', actualMinutes: 45, estimatedMinutes: 60 }
       ]
     })
   })
