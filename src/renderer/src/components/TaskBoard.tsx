@@ -1356,9 +1356,7 @@ export const TaskBoard = ({
                       }
                       placeholder="最大"
                     />
-                    <label htmlFor="task-monthly-summary-category-estimated-min">
-                      見積（分）
-                    </label>
+                    <label htmlFor="task-monthly-summary-category-estimated-min">見積（分）</label>
                     <input
                       id="task-monthly-summary-category-estimated-min"
                       className="task-monthly-summary-number-input"
