@@ -715,19 +715,28 @@ export const TaskBoard = ({
           <div className="task-monthly-summary-header">
             <h4>案件別実績（{selectedMonth}）</h4>
           </div>
-          <div className="task-monthly-summary-list">
-            {monthlyProjectActuals.map((projectActual) => (
-              <div key={projectActual.project} className="task-monthly-summary-item">
-                <span className="task-monthly-summary-project">{projectActual.project}</span>
-                <span className="task-monthly-summary-minutes">
-                  {projectActual.actualMinutes} 分
-                </span>
-              </div>
-            ))}
-            {monthlyProjectActuals.length === 0 && !isLoading ? (
-              <p className="task-monthly-summary-empty">対象月の実績タスクはありません。</p>
-            ) : null}
-          </div>
+          {monthlyProjectActuals.length === 0 && !isLoading ? (
+            <p className="task-monthly-summary-empty">対象月の実績タスクはありません。</p>
+          ) : (
+            <div className="task-monthly-summary-table-wrap">
+              <table className="task-monthly-summary-table">
+                <thead>
+                  <tr>
+                    <th>案件名</th>
+                    <th>合計実績時間</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {monthlyProjectActuals.map((projectActual) => (
+                    <tr key={projectActual.project}>
+                      <td>{projectActual.project}</td>
+                      <td>{formatMinutesAsHourMinute(projectActual.actualMinutes)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
         <div className="task-table-scroll">
           <table>

@@ -726,32 +726,41 @@ code {
   font-weight: 700;
 }
 
-.task-monthly-summary-list {
-  display: grid;
-  gap: 6px;
+.task-monthly-summary-table-wrap {
   padding: 8px 10px;
 }
 
-.task-monthly-summary-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+.task-monthly-summary-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.task-monthly-summary-table th,
+.task-monthly-summary-table td {
+  padding: 6px 4px;
+  border-bottom: 1px solid rgba(143, 170, 212, 0.15);
   font-size: 12px;
 }
 
-.task-monthly-summary-project {
-  color: #f1f6ff;
-  font-weight: 600;
+.task-monthly-summary-table th {
+  text-align: left;
+  color: #dbe9ff;
+  font-weight: 700;
 }
 
-.task-monthly-summary-minutes {
-  color: #d5e3f9;
+.task-monthly-summary-table td {
+  color: #f1f6ff;
+}
+
+.task-monthly-summary-table th:last-child,
+.task-monthly-summary-table td:last-child {
+  text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
 .task-monthly-summary-empty {
   margin: 0;
+  padding: 8px 10px;
   color: var(--dash-text-muted);
   font-size: 12px;
 }
