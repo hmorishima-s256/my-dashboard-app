@@ -729,6 +729,7 @@ code {
 .task-monthly-summary-controls {
   display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
@@ -830,6 +831,31 @@ code {
   gap: 10px;
   padding: 12px;
   border-bottom: 1px solid rgba(143, 170, 212, 0.15);
+}
+
+.task-table-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.task-table-search-input,
+.task-summary-search-input {
+  border: 1px solid var(--dash-line);
+  border-radius: 8px;
+  height: 30px;
+  padding: 0 10px;
+  color: #eaf4ff;
+  font-size: 12px;
+  background: rgba(10, 18, 34, 0.95);
+}
+
+.task-table-search-input {
+  width: 220px;
+}
+
+.task-summary-search-input {
+  width: 220px;
 }
 
 .task-table-title-wrap {
@@ -1277,5 +1303,14 @@ code {
 
   .task-table-title-wrap {
     flex-wrap: wrap;
+  }
+
+  .task-table-header-actions {
+    width: 100%;
+  }
+
+  .task-table-search-input,
+  .task-summary-search-input {
+    width: 100%;
   }
 }

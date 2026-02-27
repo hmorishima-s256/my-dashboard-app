@@ -211,6 +211,13 @@ const upsertProjectScopedValue = (
   }
 }
 
+const normalizeSearchKeyword = (value: string): string => value.trim().toLocaleLowerCase('ja')
+
+const matchesSearchKeyword = (keyword: string, fields: string[]): boolean => {
+  if (!keyword) return true
+  return fields.some((field) => field.toLocaleLowerCase('ja').includes(keyword))
+}
+
 // タスクの登録・一覧・計測操作を担当するコンポーネント
 export const TaskBoard = ({
   selectedDate,
@@ -271,6 +278,8 @@ export const TaskBoard = ({
   const selectedDateMonth = selectedDate.slice(0, 7)
   const [summaryPeriodUnit, setSummaryPeriodUnit] = useState<SummaryPeriodUnit>('month')
   const [summaryPeriod, setSummaryPeriod] = useState(selectedDateMonth)
+  const [summarySearchKeywordInput, setSummarySearchKeywordInput] = useState('')
+  const [taskSearchKeywordInput, setTaskSearchKeywordInput] = useState('')
 
   const projectOptions = useMemo(() => buildOptionList(projectMaster), [projectMaster])
   const categoryOptions = useMemo(
@@ -281,9 +290,45 @@ export const TaskBoard = ({
     () => buildOptionList(project ? (projectTitleMap[project] ?? []) : []),
     [project, projectTitleMap]
   )
+  const summarySearchKeyword = useMemo(
+    () => normalizeSearchKeyword(summarySearchKeywordInput),
+    [summarySearchKeywordInput]
+  )
+  const taskSearchKeyword = useMemo(
+    () => normalizeSearchKeyword(taskSearchKeywordInput),
+    [taskSearchKeywordInput]
+  )
+  const filteredMonthlyProjectActuals = useMemo(
+    () =>
+      monthlyProjectActuals.filter((projectActual) =>
+        matchesSearchKeyword(summarySearchKeyword, [projectActual.project])
+      ),
+    [monthlyProjectActuals, summarySearchKeyword]
+  )
+  const filteredMonthlyCategoryActuals = useMemo(
+    () =>
+      monthlyCategoryActuals.filter((categoryActual) =>
+        matchesSearchKeyword(summarySearchKeyword, [
+          categoryActual.project,
+          categoryActual.category
+        ])
+      ),
+    [monthlyCategoryActuals, summarySearchKeyword]
+  )
+  const filteredMonthlyTitleActuals = useMemo(
+    () =>
+      monthlyTitleActuals.filter((titleActual) =>
+        matchesSearchKeyword(summarySearchKeyword, [
+          titleActual.project,
+          titleActual.category,
+          titleActual.title
+        ])
+      ),
+    [monthlyTitleActuals, summarySearchKeyword]
+  )
   const sortedMonthlyProjectActuals = useMemo(() => {
     const direction = monthlySummarySortDirection === 'asc' ? 1 : -1
-    return [...monthlyProjectActuals].sort((left, right) => {
+    return [...filteredMonthlyProjectActuals].sort((left, right) => {
       let comparedValue = 0
       if (monthlySummarySortKey === 'project') {
         comparedValue = left.project.localeCompare(right.project, 'ja')
@@ -297,10 +342,17 @@ export const TaskBoard = ({
       }
       return left.project.localeCompare(right.project, 'ja')
     })
-  }, [monthlyProjectActuals, monthlySummarySortDirection, monthlySummarySortKey])
+  }, [filteredMonthlyProjectActuals, monthlySummarySortDirection, monthlySummarySortKey])
+  const filteredTasks = useMemo(
+    () =>
+      tasks.filter((task) =>
+        matchesSearchKeyword(taskSearchKeyword, [task.project, task.category, task.title])
+      ),
+    [taskSearchKeyword, tasks]
+  )
   const sortedTasks = useMemo(() => {
     const direction = taskTableSortDirection === 'asc' ? 1 : -1
-    return [...tasks].sort((left, right) => {
+    return [...filteredTasks].sort((left, right) => {
       let comparedValue = 0
       switch (taskTableSortKey) {
         case 'createdAt': {
@@ -346,7 +398,7 @@ export const TaskBoard = ({
       }
       return left.id.localeCompare(right.id)
     })
-  }, [taskTableSortDirection, taskTableSortKey, tasks])
+  }, [filteredTasks, taskTableSortDirection, taskTableSortKey])
 
   const parseDurationMinutes = (value: string, unit: DurationUnit): number => {
     const normalized = normalizeNumericText(value)
@@ -863,9 +915,18 @@ export const TaskBoard = ({
               <span className="task-form-guest-tag">ゲストモード（終了時に消えます）</span>
             ) : null}
           </div>
-          <button className="task-open-modal-button" type="button" onClick={openCreateModal}>
-            タスク登録
-          </button>
+          <div className="task-table-header-actions">
+            <input
+              className="task-table-search-input"
+              type="search"
+              value={taskSearchKeywordInput}
+              onChange={(event) => setTaskSearchKeywordInput(event.target.value)}
+              placeholder="案件/カテゴリ/タスクで検索"
+            />
+            <button className="task-open-modal-button" type="button" onClick={openCreateModal}>
+              タスク登録
+            </button>
+          </div>
         </div>
         {errorMessage ? <p className="task-inline-error">{errorMessage}</p> : null}
         <section className="task-monthly-summary">
@@ -914,10 +975,21 @@ export const TaskBoard = ({
                   />
                 </>
               )}
+              <label htmlFor="task-monthly-summary-search">検索</label>
+              <input
+                id="task-monthly-summary-search"
+                className="task-summary-search-input"
+                type="search"
+                value={summarySearchKeywordInput}
+                onChange={(event) => setSummarySearchKeywordInput(event.target.value)}
+                placeholder="案件/カテゴリ/タスクで検索"
+              />
             </div>
           </div>
           {monthlyProjectActuals.length === 0 && !isLoading ? (
             <p className="task-monthly-summary-empty">対象期間の案件集計データはありません。</p>
+          ) : sortedMonthlyProjectActuals.length === 0 && !isLoading ? (
+            <p className="task-monthly-summary-empty">検索条件に一致する案件集計はありません。</p>
           ) : (
             <div className="task-monthly-summary-table-wrap">
               <table className="task-monthly-summary-table">
@@ -978,6 +1050,10 @@ export const TaskBoard = ({
               <p className="task-monthly-summary-empty">
                 対象期間のカテゴリ集計データはありません。
               </p>
+            ) : filteredMonthlyCategoryActuals.length === 0 && !isLoading ? (
+              <p className="task-monthly-summary-empty">
+                検索条件に一致するカテゴリ集計はありません。
+              </p>
             ) : (
               <div className="task-monthly-summary-table-wrap">
                 <table className="task-monthly-summary-table">
@@ -990,7 +1066,7 @@ export const TaskBoard = ({
                     </tr>
                   </thead>
                   <tbody>
-                    {monthlyCategoryActuals.map((categoryActual) => (
+                    {filteredMonthlyCategoryActuals.map((categoryActual) => (
                       <tr key={`${categoryActual.project}-${categoryActual.category}`}>
                         <td>{categoryActual.project}</td>
                         <td>{categoryActual.category}</td>
@@ -1012,6 +1088,10 @@ export const TaskBoard = ({
             <h5>タスク別集計</h5>
             {monthlyTitleActuals.length === 0 && !isLoading ? (
               <p className="task-monthly-summary-empty">対象期間のタスク集計データはありません。</p>
+            ) : filteredMonthlyTitleActuals.length === 0 && !isLoading ? (
+              <p className="task-monthly-summary-empty">
+                検索条件に一致するタスク集計はありません。
+              </p>
             ) : (
               <div className="task-monthly-summary-table-wrap">
                 <table className="task-monthly-summary-table">
@@ -1025,7 +1105,7 @@ export const TaskBoard = ({
                     </tr>
                   </thead>
                   <tbody>
-                    {monthlyTitleActuals.map((titleActual) => (
+                    {filteredMonthlyTitleActuals.map((titleActual) => (
                       <tr
                         key={`${titleActual.project}-${titleActual.category}-${titleActual.title}`}
                       >
@@ -1200,10 +1280,12 @@ export const TaskBoard = ({
                   </td>
                 </tr>
               ))}
-              {tasks.length === 0 && !isLoading ? (
+              {sortedTasks.length === 0 && !isLoading ? (
                 <tr>
                   <td colSpan={7} className="task-empty-row">
-                    {selectedDateLabel} のタスクはありません。
+                    {tasks.length === 0
+                      ? `${selectedDateLabel} のタスクはありません。`
+                      : '検索条件に一致するタスクはありません。'}
                   </td>
                 </tr>
               ) : null}
