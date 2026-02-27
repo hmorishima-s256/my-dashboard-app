@@ -726,6 +726,28 @@ code {
   font-weight: 700;
 }
 
+.task-monthly-summary-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.task-monthly-summary-controls label {
+  color: #dbe9ff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.task-monthly-summary-month-input {
+  border: 1px solid var(--dash-line);
+  border-radius: 8px;
+  height: 30px;
+  padding: 0 8px;
+  color: #eaf4ff;
+  font-size: 12px;
+  background: rgba(10, 18, 34, 0.95);
+}
+
 .task-monthly-summary-table-wrap {
   padding: 8px 10px;
 }
