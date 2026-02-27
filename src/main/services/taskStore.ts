@@ -252,20 +252,28 @@ const buildMonthlyProjectActualsResponse = (
   schema: TaskSchema,
   month: string
 ): TaskMonthlyProjectActualsResponse => {
-  const projectActualMap = new Map<string, number>()
+  const projectSummaryMap = new Map<string, { actualMinutes: number; estimatedMinutes: number }>()
   const monthPrefix = `${month}-`
   schema.tasks.forEach((task) => {
     if (!task.date.startsWith(monthPrefix)) return
     const projectName = normalizeText(task.project)
     if (!projectName) return
-    projectActualMap.set(
-      projectName,
-      (projectActualMap.get(projectName) ?? 0) + task.actual.minutes
-    )
+    const currentSummary = projectSummaryMap.get(projectName) ?? {
+      actualMinutes: 0,
+      estimatedMinutes: 0
+    }
+    projectSummaryMap.set(projectName, {
+      actualMinutes: currentSummary.actualMinutes + task.actual.minutes,
+      estimatedMinutes: currentSummary.estimatedMinutes + task.estimated.minutes
+    })
   })
 
-  const projectActuals: ProjectMonthlyActual[] = Array.from(projectActualMap.entries())
-    .map(([project, actualMinutes]) => ({ project, actualMinutes }))
+  const projectActuals: ProjectMonthlyActual[] = Array.from(projectSummaryMap.entries())
+    .map(([project, summary]) => ({
+      project,
+      actualMinutes: summary.actualMinutes,
+      estimatedMinutes: summary.estimatedMinutes
+    }))
     .sort((a, b) => a.project.localeCompare(b.project, 'ja'))
 
   return {

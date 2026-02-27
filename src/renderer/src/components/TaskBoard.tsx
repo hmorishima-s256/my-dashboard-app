@@ -38,7 +38,7 @@ type SelectOption = {
 
 type DurationUnit = 'hourMinute' | 'decimalHours' | 'minutes'
 type TaskModalMode = 'create' | 'edit'
-type MonthlySummarySortKey = 'project' | 'actualMinutes'
+type MonthlySummarySortKey = 'project' | 'actualMinutes' | 'estimatedMinutes'
 type TaskTableSortKey =
   | 'createdAt'
   | 'projectCategory'
@@ -274,10 +274,14 @@ export const TaskBoard = ({
   const sortedMonthlyProjectActuals = useMemo(() => {
     const direction = monthlySummarySortDirection === 'asc' ? 1 : -1
     return [...monthlyProjectActuals].sort((left, right) => {
-      const comparedValue =
-        monthlySummarySortKey === 'project'
-          ? left.project.localeCompare(right.project, 'ja')
-          : left.actualMinutes - right.actualMinutes
+      let comparedValue = 0
+      if (monthlySummarySortKey === 'project') {
+        comparedValue = left.project.localeCompare(right.project, 'ja')
+      } else if (monthlySummarySortKey === 'actualMinutes') {
+        comparedValue = left.actualMinutes - right.actualMinutes
+      } else {
+        comparedValue = left.estimatedMinutes - right.estimatedMinutes
+      }
       if (comparedValue !== 0) {
         return comparedValue * direction
       }
@@ -873,7 +877,7 @@ export const TaskBoard = ({
                         <span>{buildMonthlySummarySortIndicator('project')}</span>
                       </button>
                     </th>
-                    <th>
+                    <th className="task-monthly-summary-numeric">
                       <button
                         className="task-monthly-summary-sort-button"
                         type="button"
@@ -883,13 +887,28 @@ export const TaskBoard = ({
                         <span>{buildMonthlySummarySortIndicator('actualMinutes')}</span>
                       </button>
                     </th>
+                    <th className="task-monthly-summary-numeric">
+                      <button
+                        className="task-monthly-summary-sort-button"
+                        type="button"
+                        onClick={() => toggleMonthlySummarySort('estimatedMinutes')}
+                      >
+                        合計見積時間
+                        <span>{buildMonthlySummarySortIndicator('estimatedMinutes')}</span>
+                      </button>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {sortedMonthlyProjectActuals.map((projectActual) => (
                     <tr key={projectActual.project}>
                       <td>{projectActual.project}</td>
-                      <td>{formatMinutesAsHourMinute(projectActual.actualMinutes)}</td>
+                      <td className="task-monthly-summary-numeric">
+                        {formatMinutesAsHourMinute(projectActual.actualMinutes)}
+                      </td>
+                      <td className="task-monthly-summary-numeric">
+                        {formatMinutesAsHourMinute(projectActual.estimatedMinutes)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
