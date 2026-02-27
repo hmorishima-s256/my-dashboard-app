@@ -799,6 +799,18 @@ code {
   font-size: 12px;
 }
 
+.task-monthly-summary-subsection {
+  border-top: 1px solid rgba(143, 170, 212, 0.18);
+}
+
+.task-monthly-summary-subsection h5 {
+  margin: 0;
+  padding: 8px 10px 0;
+  color: #dbe9ff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .task-table-card {
   display: flex;
   flex-direction: column;

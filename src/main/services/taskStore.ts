@@ -7,6 +7,7 @@ import { JSONFile } from 'lowdb/node'
 import { getUserSettingsDir } from '../googleAuth'
 import { GUEST_USER_ID } from '../../shared/contracts'
 import type {
+  CategoryMonthlyActual,
   ProjectMonthlyActual,
   Task,
   TaskActualLog,
@@ -16,6 +17,7 @@ import type {
   TaskPriority,
   TaskSchema,
   TaskStatus,
+  TitleMonthlyActual,
   UserProfile
 } from '../../shared/contracts'
 
@@ -253,11 +255,15 @@ const buildMonthlyProjectActualsResponse = (
   month: string
 ): TaskMonthlyProjectActualsResponse => {
   const projectSummaryMap = new Map<string, { actualMinutes: number; estimatedMinutes: number }>()
+  const categorySummaryMap = new Map<string, { actualMinutes: number; estimatedMinutes: number }>()
+  const titleSummaryMap = new Map<string, { actualMinutes: number; estimatedMinutes: number }>()
   const monthPrefix = `${month}-`
   schema.tasks.forEach((task) => {
     if (!task.date.startsWith(monthPrefix)) return
     const projectName = normalizeText(task.project)
     if (!projectName) return
+    const categoryName = normalizeText(task.category) || '-'
+    const titleName = normalizeText(task.title) || '-'
     const currentSummary = projectSummaryMap.get(projectName) ?? {
       actualMinutes: 0,
       estimatedMinutes: 0
@@ -265,6 +271,26 @@ const buildMonthlyProjectActualsResponse = (
     projectSummaryMap.set(projectName, {
       actualMinutes: currentSummary.actualMinutes + task.actual.minutes,
       estimatedMinutes: currentSummary.estimatedMinutes + task.estimated.minutes
+    })
+
+    const categoryKey = `${projectName}\u0000${categoryName}`
+    const currentCategorySummary = categorySummaryMap.get(categoryKey) ?? {
+      actualMinutes: 0,
+      estimatedMinutes: 0
+    }
+    categorySummaryMap.set(categoryKey, {
+      actualMinutes: currentCategorySummary.actualMinutes + task.actual.minutes,
+      estimatedMinutes: currentCategorySummary.estimatedMinutes + task.estimated.minutes
+    })
+
+    const titleKey = `${projectName}\u0000${categoryName}\u0000${titleName}`
+    const currentTitleSummary = titleSummaryMap.get(titleKey) ?? {
+      actualMinutes: 0,
+      estimatedMinutes: 0
+    }
+    titleSummaryMap.set(titleKey, {
+      actualMinutes: currentTitleSummary.actualMinutes + task.actual.minutes,
+      estimatedMinutes: currentTitleSummary.estimatedMinutes + task.estimated.minutes
     })
   })
 
@@ -276,9 +302,46 @@ const buildMonthlyProjectActualsResponse = (
     }))
     .sort((a, b) => a.project.localeCompare(b.project, 'ja'))
 
+  const categoryActuals: CategoryMonthlyActual[] = Array.from(categorySummaryMap.entries())
+    .map(([key, summary]) => {
+      const [project, category] = key.split('\u0000')
+      return {
+        project,
+        category,
+        actualMinutes: summary.actualMinutes,
+        estimatedMinutes: summary.estimatedMinutes
+      }
+    })
+    .sort((a, b) => {
+      const comparedProject = a.project.localeCompare(b.project, 'ja')
+      if (comparedProject !== 0) return comparedProject
+      return a.category.localeCompare(b.category, 'ja')
+    })
+
+  const titleActuals: TitleMonthlyActual[] = Array.from(titleSummaryMap.entries())
+    .map(([key, summary]) => {
+      const [project, category, title] = key.split('\u0000')
+      return {
+        project,
+        category,
+        title,
+        actualMinutes: summary.actualMinutes,
+        estimatedMinutes: summary.estimatedMinutes
+      }
+    })
+    .sort((a, b) => {
+      const comparedProject = a.project.localeCompare(b.project, 'ja')
+      if (comparedProject !== 0) return comparedProject
+      const comparedCategory = a.category.localeCompare(b.category, 'ja')
+      if (comparedCategory !== 0) return comparedCategory
+      return a.title.localeCompare(b.title, 'ja')
+    })
+
   return {
     month,
-    projectActuals
+    projectActuals,
+    categoryActuals,
+    titleActuals
   }
 }
 
