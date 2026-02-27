@@ -100,6 +100,22 @@ git status --short --ignored
 git ls-files | rg -n "credentials\\.json|token\\.json|client_secret|service_account|\\.env" -S
 ```
 
+## Task Summary, Sort, and Search
+
+The `タスク` tab provides both daily task management and period-based aggregation.
+
+- Period aggregation
+  - Switch unit: `月次 (YYYY-MM)` / `年次 (YYYY)`
+  - Aggregation tables: `案件別` / `カテゴリ別` / `タスク別`
+  - Metrics: `合計実績時間` / `合計見積時間` (hour-minute display)
+- Sort
+  - Aggregation table (`案件別`): sort by `案件名` / `合計実績時間` / `合計見積時間` (asc/desc)
+  - Task table: sort by `案件/カテゴリ` / `タスク` / `ステータス` / `優先度` / `見積` / `実績`
+  - Default task order remains `createdAt asc` (oldest first)
+- Search and filters
+  - Aggregation area: keyword (`案件/カテゴリ/タスク`) + minutes range filters (`実績` / `見積`)
+  - Task table: keyword (`案件/カテゴリ/タスク`) + `ステータス` + `優先度` + minutes range filters (`実績` / `見積`)
+
 ## Project Setup
 
 ### Install
