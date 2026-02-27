@@ -739,6 +739,20 @@ code {
   font-weight: 700;
 }
 
+.task-monthly-summary-subsection-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 10px 0;
+}
+
+.task-monthly-summary-subsection-filters label {
+  color: #dbe9ff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .task-monthly-summary-month-input,
 .task-monthly-summary-year-input,
 .task-monthly-summary-unit-select,
