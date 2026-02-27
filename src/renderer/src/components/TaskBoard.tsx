@@ -38,6 +38,8 @@ type SelectOption = {
 
 type DurationUnit = 'hourMinute' | 'decimalHours' | 'minutes'
 type TaskModalMode = 'create' | 'edit'
+type MonthlySummarySortKey = 'project' | 'actualMinutes'
+type SortDirection = 'asc' | 'desc'
 
 const STATUS_OPTIONS: Array<{ value: TaskStatus; label: string }> = [
   { value: 'todo', label: '未着手' },
@@ -198,6 +200,10 @@ export const TaskBoard = ({
   const [monthlyProjectActuals, setMonthlyProjectActuals] = useState<
     TaskMonthlyProjectActualsResponse['projectActuals']
   >([])
+  const [monthlySummarySortKey, setMonthlySummarySortKey] =
+    useState<MonthlySummarySortKey>('project')
+  const [monthlySummarySortDirection, setMonthlySummarySortDirection] =
+    useState<SortDirection>('asc')
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
@@ -239,6 +245,19 @@ export const TaskBoard = ({
     () => buildOptionList(project ? (projectTitleMap[project] ?? []) : []),
     [project, projectTitleMap]
   )
+  const sortedMonthlyProjectActuals = useMemo(() => {
+    const direction = monthlySummarySortDirection === 'asc' ? 1 : -1
+    return [...monthlyProjectActuals].sort((left, right) => {
+      const comparedValue =
+        monthlySummarySortKey === 'project'
+          ? left.project.localeCompare(right.project, 'ja')
+          : left.actualMinutes - right.actualMinutes
+      if (comparedValue !== 0) {
+        return comparedValue * direction
+      }
+      return left.project.localeCompare(right.project, 'ja')
+    })
+  }, [monthlyProjectActuals, monthlySummarySortDirection, monthlySummarySortKey])
 
   const parseDurationMinutes = (value: string, unit: DurationUnit): number => {
     const normalized = normalizeNumericText(value)
@@ -695,6 +714,20 @@ export const TaskBoard = ({
     }
   }
 
+  const toggleMonthlySummarySort = (nextSortKey: MonthlySummarySortKey): void => {
+    if (monthlySummarySortKey === nextSortKey) {
+      setMonthlySummarySortDirection((previous) => (previous === 'asc' ? 'desc' : 'asc'))
+      return
+    }
+    setMonthlySummarySortKey(nextSortKey)
+    setMonthlySummarySortDirection('asc')
+  }
+
+  const buildMonthlySummarySortIndicator = (targetSortKey: MonthlySummarySortKey): string => {
+    if (monthlySummarySortKey !== targetSortKey) return '↕'
+    return monthlySummarySortDirection === 'asc' ? '▲' : '▼'
+  }
+
   return (
     <main className="task-board">
       <section className="task-table-card">
@@ -722,12 +755,30 @@ export const TaskBoard = ({
               <table className="task-monthly-summary-table">
                 <thead>
                   <tr>
-                    <th>案件名</th>
-                    <th>合計実績時間</th>
+                    <th>
+                      <button
+                        className="task-monthly-summary-sort-button"
+                        type="button"
+                        onClick={() => toggleMonthlySummarySort('project')}
+                      >
+                        案件名
+                        <span>{buildMonthlySummarySortIndicator('project')}</span>
+                      </button>
+                    </th>
+                    <th>
+                      <button
+                        className="task-monthly-summary-sort-button"
+                        type="button"
+                        onClick={() => toggleMonthlySummarySort('actualMinutes')}
+                      >
+                        合計実績時間
+                        <span>{buildMonthlySummarySortIndicator('actualMinutes')}</span>
+                      </button>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {monthlyProjectActuals.map((projectActual) => (
+                  {sortedMonthlyProjectActuals.map((projectActual) => (
                     <tr key={projectActual.project}>
                       <td>{projectActual.project}</td>
                       <td>{formatMinutesAsHourMinute(projectActual.actualMinutes)}</td>
