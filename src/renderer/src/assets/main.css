@@ -748,6 +748,18 @@ code {
   font-weight: 700;
 }
 
+.task-monthly-summary-sort-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
 .task-monthly-summary-table td {
   color: #f1f6ff;
 }
