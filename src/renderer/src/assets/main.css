@@ -910,11 +910,28 @@ code {
   min-width: 0;
 }
 
-.task-table-title {
-  margin: 0;
-  color: #f4f8ff;
-  font-size: 16px;
+.task-content-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.task-content-tab {
+  border: 1px solid var(--dash-line);
+  border-radius: 999px;
+  padding: 6px 12px;
+  color: #dbe9ff;
+  font-size: 13px;
   font-weight: 700;
+  background: rgba(10, 18, 34, 0.82);
+  cursor: pointer;
+}
+
+.task-content-tab.active {
+  border-color: rgba(40, 200, 120, 0.7);
+  color: #f4f8ff;
+  background: linear-gradient(135deg, var(--dash-accent-deep), var(--dash-accent));
 }
 
 .task-table-subtitle {
@@ -1348,6 +1365,10 @@ code {
 
   .task-table-title-wrap {
     flex-wrap: wrap;
+  }
+
+  .task-content-tab {
+    min-width: 0;
   }
 
   .task-table-header-actions {

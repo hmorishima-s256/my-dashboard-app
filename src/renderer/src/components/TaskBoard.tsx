@@ -58,6 +58,7 @@ type SelectOption = {
 type DurationUnit = 'hourMinute' | 'decimalHours' | 'minutes'
 type TaskModalMode = 'create' | 'edit'
 type SummaryPeriodUnit = 'month' | 'year'
+type TaskContentTab = 'list' | 'summary'
 
 const STATUS_OPTIONS: Array<{ value: TaskStatus; label: string }> = [
   { value: 'todo', label: '未着手' },
@@ -272,6 +273,7 @@ export const TaskBoard = ({
   const [summaryEstimatedMinutesMinInput, setSummaryEstimatedMinutesMinInput] = useState('')
   const [summaryEstimatedMinutesMaxInput, setSummaryEstimatedMinutesMaxInput] = useState('')
   const [taskSearchKeywordInput, setTaskSearchKeywordInput] = useState('')
+  const [taskContentTab, setTaskContentTab] = useState<TaskContentTab>('list')
   const [taskStatusFilter, setTaskStatusFilter] = useState<TaskStatusFilter>(ALL_TASK_STATUS_FILTER)
   const [taskPriorityFilter, setTaskPriorityFilter] =
     useState<TaskPriorityFilter>(ALL_TASK_PRIORITY_FILTER)
@@ -931,511 +933,559 @@ export const TaskBoard = ({
       <section className="task-table-card">
         <div className="task-table-header">
           <div className="task-table-title-wrap">
-            <h3 className="task-table-title">タスク一覧</h3>
-            <span className="task-table-subtitle">{selectedDateLabel}</span>
+            <div className="task-content-tabs" role="tablist" aria-label="タスク表示切替">
+              <button
+                id="task-content-tab-list"
+                className={`task-content-tab ${taskContentTab === 'list' ? 'active' : ''}`}
+                type="button"
+                role="tab"
+                aria-selected={taskContentTab === 'list'}
+                aria-controls="task-content-list"
+                onClick={() => setTaskContentTab('list')}
+              >
+                タスク一覧
+              </button>
+              <button
+                id="task-content-tab-summary"
+                className={`task-content-tab ${taskContentTab === 'summary' ? 'active' : ''}`}
+                type="button"
+                role="tab"
+                aria-selected={taskContentTab === 'summary'}
+                aria-controls="task-content-summary"
+                onClick={() => setTaskContentTab('summary')}
+              >
+                タスク集計
+              </button>
+            </div>
             {isGuest ? (
               <span className="task-form-guest-tag">ゲストモード（終了時に消えます）</span>
             ) : null}
           </div>
           <div className="task-table-header-actions">
-            <input
-              className="task-table-search-input"
-              type="search"
-              value={taskSearchKeywordInput}
-              onChange={(event) => setTaskSearchKeywordInput(event.target.value)}
-              placeholder="案件/カテゴリ/タスクで検索"
-            />
+            {taskContentTab === 'list' ? (
+              <input
+                className="task-table-search-input"
+                type="search"
+                value={taskSearchKeywordInput}
+                onChange={(event) => setTaskSearchKeywordInput(event.target.value)}
+                placeholder="案件/カテゴリ/タスクで検索"
+              />
+            ) : null}
             <button className="task-open-modal-button" type="button" onClick={openCreateModal}>
               タスク登録
             </button>
           </div>
         </div>
-        <div className="task-table-filter-row">
-          <label htmlFor="task-filter-status">ステータス</label>
-          <select
-            id="task-filter-status"
-            className="task-filter-select"
-            value={taskStatusFilter}
-            onChange={(event) => setTaskStatusFilter(event.target.value as TaskStatusFilter)}
-          >
-            <option value={ALL_TASK_STATUS_FILTER}>すべて</option>
-            {STATUS_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <label htmlFor="task-filter-priority">優先度</label>
-          <select
-            id="task-filter-priority"
-            className="task-filter-select"
-            value={taskPriorityFilter}
-            onChange={(event) => setTaskPriorityFilter(event.target.value as TaskPriorityFilter)}
-          >
-            <option value={ALL_TASK_PRIORITY_FILTER}>すべて</option>
-            {PRIORITY_OPTIONS.map((priorityOption) => (
-              <option key={priorityOption} value={priorityOption}>
-                {priorityOption}
-              </option>
-            ))}
-          </select>
-          <label htmlFor="task-filter-estimated-min">見積（分）</label>
-          <input
-            id="task-filter-estimated-min"
-            className="task-filter-number-input"
-            type="number"
-            inputMode="numeric"
-            min="0"
-            step="1"
-            value={taskEstimatedMinutesMinInput}
-            onChange={(event) => setTaskEstimatedMinutesMinInput(event.target.value)}
-            placeholder="最小"
-          />
-          <span className="task-filter-range-separator">-</span>
-          <input
-            className="task-filter-number-input"
-            type="number"
-            inputMode="numeric"
-            min="0"
-            step="1"
-            value={taskEstimatedMinutesMaxInput}
-            onChange={(event) => setTaskEstimatedMinutesMaxInput(event.target.value)}
-            placeholder="最大"
-          />
-          <label htmlFor="task-filter-actual-min">実績（分）</label>
-          <input
-            id="task-filter-actual-min"
-            className="task-filter-number-input"
-            type="number"
-            inputMode="numeric"
-            min="0"
-            step="1"
-            value={taskActualMinutesMinInput}
-            onChange={(event) => setTaskActualMinutesMinInput(event.target.value)}
-            placeholder="最小"
-          />
-          <span className="task-filter-range-separator">-</span>
-          <input
-            className="task-filter-number-input"
-            type="number"
-            inputMode="numeric"
-            min="0"
-            step="1"
-            value={taskActualMinutesMaxInput}
-            onChange={(event) => setTaskActualMinutesMaxInput(event.target.value)}
-            placeholder="最大"
-          />
-        </div>
-        {errorMessage ? <p className="task-inline-error">{errorMessage}</p> : null}
-        <section className="task-monthly-summary">
-          <div className="task-monthly-summary-header">
-            <h4>
-              {summaryPeriodUnit === 'month' ? '案件別実績（月次）' : '案件別実績（年次）'}（
-              {summaryPeriod}）
-            </h4>
-            <div className="task-monthly-summary-controls">
-              <label htmlFor="task-monthly-summary-unit">単位</label>
-              <select
-                id="task-monthly-summary-unit"
-                className="task-monthly-summary-unit-select"
-                value={summaryPeriodUnit}
-                onChange={(event) =>
-                  handleChangeSummaryPeriodUnit(event.target.value as SummaryPeriodUnit)
-                }
-              >
-                <option value="month">月次</option>
-                <option value="year">年次</option>
-              </select>
-              {summaryPeriodUnit === 'month' ? (
-                <>
-                  <label htmlFor="task-monthly-summary-period-month">対象月</label>
-                  <input
-                    id="task-monthly-summary-period-month"
-                    className="task-monthly-summary-month-input"
-                    type="month"
-                    value={summaryPeriod}
-                    onChange={(event) => handleChangeSummaryPeriod(event.target.value)}
-                  />
-                </>
-              ) : (
-                <>
-                  <label htmlFor="task-monthly-summary-period-year">対象年</label>
-                  <input
-                    id="task-monthly-summary-period-year"
-                    className="task-monthly-summary-year-input"
-                    type="number"
-                    inputMode="numeric"
-                    min="2000"
-                    max="9999"
-                    step="1"
-                    value={summaryPeriod}
-                    onChange={(event) => handleChangeSummaryPeriod(event.target.value)}
-                  />
-                </>
-              )}
-              <label htmlFor="task-monthly-summary-search">検索</label>
-              <input
-                id="task-monthly-summary-search"
-                className="task-summary-search-input"
-                type="search"
-                value={summarySearchKeywordInput}
-                onChange={(event) => setSummarySearchKeywordInput(event.target.value)}
-                placeholder="案件/カテゴリ/タスクで検索"
-              />
-              <label htmlFor="task-monthly-summary-actual-min">実績（分）</label>
-              <input
-                id="task-monthly-summary-actual-min"
-                className="task-monthly-summary-number-input"
-                type="number"
-                inputMode="numeric"
-                min="0"
-                step="1"
-                value={summaryActualMinutesMinInput}
-                onChange={(event) => setSummaryActualMinutesMinInput(event.target.value)}
-                placeholder="最小"
-              />
-              <span className="task-filter-range-separator">-</span>
-              <input
-                className="task-monthly-summary-number-input"
-                type="number"
-                inputMode="numeric"
-                min="0"
-                step="1"
-                value={summaryActualMinutesMaxInput}
-                onChange={(event) => setSummaryActualMinutesMaxInput(event.target.value)}
-                placeholder="最大"
-              />
-              <label htmlFor="task-monthly-summary-estimated-min">見積（分）</label>
-              <input
-                id="task-monthly-summary-estimated-min"
-                className="task-monthly-summary-number-input"
-                type="number"
-                inputMode="numeric"
-                min="0"
-                step="1"
-                value={summaryEstimatedMinutesMinInput}
-                onChange={(event) => setSummaryEstimatedMinutesMinInput(event.target.value)}
-                placeholder="最小"
-              />
-              <span className="task-filter-range-separator">-</span>
-              <input
-                className="task-monthly-summary-number-input"
-                type="number"
-                inputMode="numeric"
-                min="0"
-                step="1"
-                value={summaryEstimatedMinutesMaxInput}
-                onChange={(event) => setSummaryEstimatedMinutesMaxInput(event.target.value)}
-                placeholder="最大"
-              />
-            </div>
-          </div>
-          {monthlyProjectActuals.length === 0 && !isLoading ? (
-            <p className="task-monthly-summary-empty">対象期間の案件集計データはありません。</p>
-          ) : sortedMonthlyProjectActuals.length === 0 && !isLoading ? (
-            <p className="task-monthly-summary-empty">検索条件に一致する案件集計はありません。</p>
-          ) : (
-            <div className="task-monthly-summary-table-wrap">
-              <table className="task-monthly-summary-table">
-                <thead>
-                  <tr>
-                    <th>
-                      <button
-                        className="task-monthly-summary-sort-button"
-                        type="button"
-                        onClick={() => toggleMonthlySummarySort('project')}
-                      >
-                        案件名
-                        <span>{buildMonthlySummarySortIndicator('project')}</span>
-                      </button>
-                    </th>
-                    <th className="task-monthly-summary-numeric">
-                      <button
-                        className="task-monthly-summary-sort-button"
-                        type="button"
-                        onClick={() => toggleMonthlySummarySort('actualMinutes')}
-                      >
-                        合計実績時間
-                        <span>{buildMonthlySummarySortIndicator('actualMinutes')}</span>
-                      </button>
-                    </th>
-                    <th className="task-monthly-summary-numeric">
-                      <button
-                        className="task-monthly-summary-sort-button"
-                        type="button"
-                        onClick={() => toggleMonthlySummarySort('estimatedMinutes')}
-                      >
-                        合計見積時間
-                        <span>{buildMonthlySummarySortIndicator('estimatedMinutes')}</span>
-                      </button>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedMonthlyProjectActuals.map((projectActual) => (
-                    <tr key={projectActual.project}>
-                      <td>{projectActual.project}</td>
-                      <td className="task-monthly-summary-numeric">
-                        {formatMinutesAsHourMinute(projectActual.actualMinutes)}
-                      </td>
-                      <td className="task-monthly-summary-numeric">
-                        {formatMinutesAsHourMinute(projectActual.estimatedMinutes)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          <div className="task-monthly-summary-subsection">
-            <h5>カテゴリ別集計</h5>
-            {monthlyCategoryActuals.length === 0 && !isLoading ? (
-              <p className="task-monthly-summary-empty">
-                対象期間のカテゴリ集計データはありません。
-              </p>
-            ) : filteredMonthlyCategoryActuals.length === 0 && !isLoading ? (
-              <p className="task-monthly-summary-empty">
-                検索条件に一致するカテゴリ集計はありません。
-              </p>
-            ) : (
-              <div className="task-monthly-summary-table-wrap">
-                <table className="task-monthly-summary-table">
-                  <thead>
-                    <tr>
-                      <th>案件名</th>
-                      <th>カテゴリ</th>
-                      <th className="task-monthly-summary-numeric">合計実績時間</th>
-                      <th className="task-monthly-summary-numeric">合計見積時間</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredMonthlyCategoryActuals.map((categoryActual) => (
-                      <tr key={`${categoryActual.project}-${categoryActual.category}`}>
-                        <td>{categoryActual.project}</td>
-                        <td>{categoryActual.category}</td>
-                        <td className="task-monthly-summary-numeric">
-                          {formatMinutesAsHourMinute(categoryActual.actualMinutes)}
-                        </td>
-                        <td className="task-monthly-summary-numeric">
-                          {formatMinutesAsHourMinute(categoryActual.estimatedMinutes)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          <div className="task-monthly-summary-subsection">
-            <h5>タスク別集計</h5>
-            {monthlyTitleActuals.length === 0 && !isLoading ? (
-              <p className="task-monthly-summary-empty">対象期間のタスク集計データはありません。</p>
-            ) : filteredMonthlyTitleActuals.length === 0 && !isLoading ? (
-              <p className="task-monthly-summary-empty">
-                検索条件に一致するタスク集計はありません。
-              </p>
-            ) : (
-              <div className="task-monthly-summary-table-wrap">
-                <table className="task-monthly-summary-table">
-                  <thead>
-                    <tr>
-                      <th>案件名</th>
-                      <th>カテゴリ</th>
-                      <th>タスク</th>
-                      <th className="task-monthly-summary-numeric">合計実績時間</th>
-                      <th className="task-monthly-summary-numeric">合計見積時間</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredMonthlyTitleActuals.map((titleActual) => (
-                      <tr
-                        key={`${titleActual.project}-${titleActual.category}-${titleActual.title}`}
-                      >
-                        <td>{titleActual.project}</td>
-                        <td>{titleActual.category}</td>
-                        <td>{titleActual.title}</td>
-                        <td className="task-monthly-summary-numeric">
-                          {formatMinutesAsHourMinute(titleActual.actualMinutes)}
-                        </td>
-                        <td className="task-monthly-summary-numeric">
-                          {formatMinutesAsHourMinute(titleActual.estimatedMinutes)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </section>
-        <div className="task-table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>
-                  <button
-                    className="task-table-sort-button"
-                    type="button"
-                    onClick={() => toggleTaskTableSort('projectCategory')}
-                  >
-                    案件/カテゴリ
-                    <span>{buildTaskTableSortIndicator('projectCategory')}</span>
-                  </button>
-                </th>
-                <th>
-                  <button
-                    className="task-table-sort-button"
-                    type="button"
-                    onClick={() => toggleTaskTableSort('title')}
-                  >
-                    タスク
-                    <span>{buildTaskTableSortIndicator('title')}</span>
-                  </button>
-                </th>
-                <th>
-                  <button
-                    className="task-table-sort-button"
-                    type="button"
-                    onClick={() => toggleTaskTableSort('status')}
-                  >
-                    ステータス
-                    <span>{buildTaskTableSortIndicator('status')}</span>
-                  </button>
-                </th>
-                <th>
-                  <button
-                    className="task-table-sort-button"
-                    type="button"
-                    onClick={() => toggleTaskTableSort('priority')}
-                  >
-                    優先度
-                    <span>{buildTaskTableSortIndicator('priority')}</span>
-                  </button>
-                </th>
-                <th>
-                  <button
-                    className="task-table-sort-button"
-                    type="button"
-                    onClick={() => toggleTaskTableSort('estimatedMinutes')}
-                  >
-                    見積
-                    <span>{buildTaskTableSortIndicator('estimatedMinutes')}</span>
-                  </button>
-                </th>
-                <th>
-                  <button
-                    className="task-table-sort-button"
-                    type="button"
-                    onClick={() => toggleTaskTableSort('actualMinutes')}
-                  >
-                    実績
-                    <span>{buildTaskTableSortIndicator('actualMinutes')}</span>
-                  </button>
-                </th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedTasks.map((task) => (
-                <tr key={task.id} className={`task-row status-${task.status}`}>
-                  <td>
-                    <div className="task-cell-title">{task.project}</div>
-                    <div className="task-cell-title">{task.category || '-'}</div>
-                  </td>
-                  <td>
-                    <div className="task-cell-title">{task.title}</div>
-                    <div className="task-cell-sub">{task.memo || '-'}</div>
-                  </td>
-                  <td>
-                    <select
-                      className={`task-status-select status-${task.status}`}
-                      value={task.status}
-                      onChange={(event) =>
-                        void saveTask({ ...task, status: event.target.value as TaskStatus })
-                      }
-                    >
-                      {STATUS_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td>
-                    <span className={`task-priority priority-${task.priority}`}>
-                      {task.priority}
-                    </span>
-                  </td>
-                  <td>
-                    <div>{buildTimeRangeText(task.estimated.start, task.estimated.end)}</div>
-                    <div>{formatDurationForList(task.estimated.minutes, taskTimeDisplayMode)}</div>
-                  </td>
-                  <td>
-                    <div>{buildActualTimeRangeText(task)}</div>
-                    <div>{formatDurationForList(task.actual.minutes, taskTimeDisplayMode)}</div>
-                  </td>
-                  <td>
-                    <div className="task-row-actions">
-                      <button type="button" onClick={() => openEditModal(task)}>
-                        詳細
-                      </button>
-                      <button
-                        className="start"
-                        type="button"
-                        onClick={() => void handleStart(task)}
-                        disabled={task.status === 'doing' || task.status === 'suspend'}
-                      >
-                        開始
-                      </button>
-                      {task.status === 'suspend' ? (
-                        <button
-                          className="resume"
-                          type="button"
-                          onClick={() => void handleResume(task)}
-                        >
-                          再開
-                        </button>
-                      ) : (
-                        <button
-                          className="suspend"
-                          type="button"
-                          onClick={() => void handleSuspend(task)}
-                          disabled={task.status !== 'doing'}
-                        >
-                          中断
-                        </button>
-                      )}
-                      <button type="button" onClick={() => void handleFinish(task)}>
-                        停止
-                      </button>
-                      <button className="done" type="button" onClick={() => void handleDone(task)}>
-                        完了
-                      </button>
-                      <button
-                        className="danger"
-                        type="button"
-                        onClick={() => void handleDelete(task.id)}
-                      >
-                        削除
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+        {taskContentTab === 'list' ? (
+          <div className="task-table-filter-row">
+            <label htmlFor="task-filter-status">ステータス</label>
+            <select
+              id="task-filter-status"
+              className="task-filter-select"
+              value={taskStatusFilter}
+              onChange={(event) => setTaskStatusFilter(event.target.value as TaskStatusFilter)}
+            >
+              <option value={ALL_TASK_STATUS_FILTER}>すべて</option>
+              {STATUS_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
               ))}
-              {sortedTasks.length === 0 && !isLoading ? (
+            </select>
+            <label htmlFor="task-filter-priority">優先度</label>
+            <select
+              id="task-filter-priority"
+              className="task-filter-select"
+              value={taskPriorityFilter}
+              onChange={(event) => setTaskPriorityFilter(event.target.value as TaskPriorityFilter)}
+            >
+              <option value={ALL_TASK_PRIORITY_FILTER}>すべて</option>
+              {PRIORITY_OPTIONS.map((priorityOption) => (
+                <option key={priorityOption} value={priorityOption}>
+                  {priorityOption}
+                </option>
+              ))}
+            </select>
+            <label htmlFor="task-filter-estimated-min">見積（分）</label>
+            <input
+              id="task-filter-estimated-min"
+              className="task-filter-number-input"
+              type="number"
+              inputMode="numeric"
+              min="0"
+              step="1"
+              value={taskEstimatedMinutesMinInput}
+              onChange={(event) => setTaskEstimatedMinutesMinInput(event.target.value)}
+              placeholder="最小"
+            />
+            <span className="task-filter-range-separator">-</span>
+            <input
+              className="task-filter-number-input"
+              type="number"
+              inputMode="numeric"
+              min="0"
+              step="1"
+              value={taskEstimatedMinutesMaxInput}
+              onChange={(event) => setTaskEstimatedMinutesMaxInput(event.target.value)}
+              placeholder="最大"
+            />
+            <label htmlFor="task-filter-actual-min">実績（分）</label>
+            <input
+              id="task-filter-actual-min"
+              className="task-filter-number-input"
+              type="number"
+              inputMode="numeric"
+              min="0"
+              step="1"
+              value={taskActualMinutesMinInput}
+              onChange={(event) => setTaskActualMinutesMinInput(event.target.value)}
+              placeholder="最小"
+            />
+            <span className="task-filter-range-separator">-</span>
+            <input
+              className="task-filter-number-input"
+              type="number"
+              inputMode="numeric"
+              min="0"
+              step="1"
+              value={taskActualMinutesMaxInput}
+              onChange={(event) => setTaskActualMinutesMaxInput(event.target.value)}
+              placeholder="最大"
+            />
+          </div>
+        ) : null}
+        {errorMessage ? <p className="task-inline-error">{errorMessage}</p> : null}
+        {taskContentTab === 'summary' ? (
+          <section
+            id="task-content-summary"
+            role="tabpanel"
+            aria-labelledby="task-content-tab-summary"
+            className="task-monthly-summary"
+          >
+            <div className="task-monthly-summary-header">
+              <h4>
+                {summaryPeriodUnit === 'month' ? '案件別実績（月次）' : '案件別実績（年次）'}（
+                {summaryPeriod}）
+              </h4>
+              <div className="task-monthly-summary-controls">
+                <label htmlFor="task-monthly-summary-unit">単位</label>
+                <select
+                  id="task-monthly-summary-unit"
+                  className="task-monthly-summary-unit-select"
+                  value={summaryPeriodUnit}
+                  onChange={(event) =>
+                    handleChangeSummaryPeriodUnit(event.target.value as SummaryPeriodUnit)
+                  }
+                >
+                  <option value="month">月次</option>
+                  <option value="year">年次</option>
+                </select>
+                {summaryPeriodUnit === 'month' ? (
+                  <>
+                    <label htmlFor="task-monthly-summary-period-month">対象月</label>
+                    <input
+                      id="task-monthly-summary-period-month"
+                      className="task-monthly-summary-month-input"
+                      type="month"
+                      value={summaryPeriod}
+                      onChange={(event) => handleChangeSummaryPeriod(event.target.value)}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <label htmlFor="task-monthly-summary-period-year">対象年</label>
+                    <input
+                      id="task-monthly-summary-period-year"
+                      className="task-monthly-summary-year-input"
+                      type="number"
+                      inputMode="numeric"
+                      min="2000"
+                      max="9999"
+                      step="1"
+                      value={summaryPeriod}
+                      onChange={(event) => handleChangeSummaryPeriod(event.target.value)}
+                    />
+                  </>
+                )}
+                <label htmlFor="task-monthly-summary-search">検索</label>
+                <input
+                  id="task-monthly-summary-search"
+                  className="task-summary-search-input"
+                  type="search"
+                  value={summarySearchKeywordInput}
+                  onChange={(event) => setSummarySearchKeywordInput(event.target.value)}
+                  placeholder="案件/カテゴリ/タスクで検索"
+                />
+                <label htmlFor="task-monthly-summary-actual-min">実績（分）</label>
+                <input
+                  id="task-monthly-summary-actual-min"
+                  className="task-monthly-summary-number-input"
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  step="1"
+                  value={summaryActualMinutesMinInput}
+                  onChange={(event) => setSummaryActualMinutesMinInput(event.target.value)}
+                  placeholder="最小"
+                />
+                <span className="task-filter-range-separator">-</span>
+                <input
+                  className="task-monthly-summary-number-input"
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  step="1"
+                  value={summaryActualMinutesMaxInput}
+                  onChange={(event) => setSummaryActualMinutesMaxInput(event.target.value)}
+                  placeholder="最大"
+                />
+                <label htmlFor="task-monthly-summary-estimated-min">見積（分）</label>
+                <input
+                  id="task-monthly-summary-estimated-min"
+                  className="task-monthly-summary-number-input"
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  step="1"
+                  value={summaryEstimatedMinutesMinInput}
+                  onChange={(event) => setSummaryEstimatedMinutesMinInput(event.target.value)}
+                  placeholder="最小"
+                />
+                <span className="task-filter-range-separator">-</span>
+                <input
+                  className="task-monthly-summary-number-input"
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  step="1"
+                  value={summaryEstimatedMinutesMaxInput}
+                  onChange={(event) => setSummaryEstimatedMinutesMaxInput(event.target.value)}
+                  placeholder="最大"
+                />
+              </div>
+            </div>
+            {monthlyProjectActuals.length === 0 && !isLoading ? (
+              <p className="task-monthly-summary-empty">対象期間の案件集計データはありません。</p>
+            ) : sortedMonthlyProjectActuals.length === 0 && !isLoading ? (
+              <p className="task-monthly-summary-empty">検索条件に一致する案件集計はありません。</p>
+            ) : (
+              <div className="task-monthly-summary-table-wrap">
+                <table className="task-monthly-summary-table">
+                  <thead>
+                    <tr>
+                      <th>
+                        <button
+                          className="task-monthly-summary-sort-button"
+                          type="button"
+                          onClick={() => toggleMonthlySummarySort('project')}
+                        >
+                          案件名
+                          <span>{buildMonthlySummarySortIndicator('project')}</span>
+                        </button>
+                      </th>
+                      <th className="task-monthly-summary-numeric">
+                        <button
+                          className="task-monthly-summary-sort-button"
+                          type="button"
+                          onClick={() => toggleMonthlySummarySort('actualMinutes')}
+                        >
+                          合計実績時間
+                          <span>{buildMonthlySummarySortIndicator('actualMinutes')}</span>
+                        </button>
+                      </th>
+                      <th className="task-monthly-summary-numeric">
+                        <button
+                          className="task-monthly-summary-sort-button"
+                          type="button"
+                          onClick={() => toggleMonthlySummarySort('estimatedMinutes')}
+                        >
+                          合計見積時間
+                          <span>{buildMonthlySummarySortIndicator('estimatedMinutes')}</span>
+                        </button>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedMonthlyProjectActuals.map((projectActual) => (
+                      <tr key={projectActual.project}>
+                        <td>{projectActual.project}</td>
+                        <td className="task-monthly-summary-numeric">
+                          {formatMinutesAsHourMinute(projectActual.actualMinutes)}
+                        </td>
+                        <td className="task-monthly-summary-numeric">
+                          {formatMinutesAsHourMinute(projectActual.estimatedMinutes)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div className="task-monthly-summary-subsection">
+              <h5>カテゴリ別集計</h5>
+              {monthlyCategoryActuals.length === 0 && !isLoading ? (
+                <p className="task-monthly-summary-empty">
+                  対象期間のカテゴリ集計データはありません。
+                </p>
+              ) : filteredMonthlyCategoryActuals.length === 0 && !isLoading ? (
+                <p className="task-monthly-summary-empty">
+                  検索条件に一致するカテゴリ集計はありません。
+                </p>
+              ) : (
+                <div className="task-monthly-summary-table-wrap">
+                  <table className="task-monthly-summary-table">
+                    <thead>
+                      <tr>
+                        <th>案件名</th>
+                        <th>カテゴリ</th>
+                        <th className="task-monthly-summary-numeric">合計実績時間</th>
+                        <th className="task-monthly-summary-numeric">合計見積時間</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredMonthlyCategoryActuals.map((categoryActual) => (
+                        <tr key={`${categoryActual.project}-${categoryActual.category}`}>
+                          <td>{categoryActual.project}</td>
+                          <td>{categoryActual.category}</td>
+                          <td className="task-monthly-summary-numeric">
+                            {formatMinutesAsHourMinute(categoryActual.actualMinutes)}
+                          </td>
+                          <td className="task-monthly-summary-numeric">
+                            {formatMinutesAsHourMinute(categoryActual.estimatedMinutes)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="task-monthly-summary-subsection">
+              <h5>タスク別集計</h5>
+              {monthlyTitleActuals.length === 0 && !isLoading ? (
+                <p className="task-monthly-summary-empty">
+                  対象期間のタスク集計データはありません。
+                </p>
+              ) : filteredMonthlyTitleActuals.length === 0 && !isLoading ? (
+                <p className="task-monthly-summary-empty">
+                  検索条件に一致するタスク集計はありません。
+                </p>
+              ) : (
+                <div className="task-monthly-summary-table-wrap">
+                  <table className="task-monthly-summary-table">
+                    <thead>
+                      <tr>
+                        <th>案件名</th>
+                        <th>カテゴリ</th>
+                        <th>タスク</th>
+                        <th className="task-monthly-summary-numeric">合計実績時間</th>
+                        <th className="task-monthly-summary-numeric">合計見積時間</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredMonthlyTitleActuals.map((titleActual) => (
+                        <tr
+                          key={`${titleActual.project}-${titleActual.category}-${titleActual.title}`}
+                        >
+                          <td>{titleActual.project}</td>
+                          <td>{titleActual.category}</td>
+                          <td>{titleActual.title}</td>
+                          <td className="task-monthly-summary-numeric">
+                            {formatMinutesAsHourMinute(titleActual.actualMinutes)}
+                          </td>
+                          <td className="task-monthly-summary-numeric">
+                            {formatMinutesAsHourMinute(titleActual.estimatedMinutes)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </section>
+        ) : null}
+        {taskContentTab === 'list' ? (
+          <div
+            id="task-content-list"
+            role="tabpanel"
+            aria-labelledby="task-content-tab-list"
+            className="task-table-scroll"
+          >
+            <table>
+              <thead>
                 <tr>
-                  <td colSpan={7} className="task-empty-row">
-                    {tasks.length === 0
-                      ? `${selectedDateLabel} のタスクはありません。`
-                      : '検索条件に一致するタスクはありません。'}
-                  </td>
+                  <th>
+                    <button
+                      className="task-table-sort-button"
+                      type="button"
+                      onClick={() => toggleTaskTableSort('projectCategory')}
+                    >
+                      案件/カテゴリ
+                      <span>{buildTaskTableSortIndicator('projectCategory')}</span>
+                    </button>
+                  </th>
+                  <th>
+                    <button
+                      className="task-table-sort-button"
+                      type="button"
+                      onClick={() => toggleTaskTableSort('title')}
+                    >
+                      タスク
+                      <span>{buildTaskTableSortIndicator('title')}</span>
+                    </button>
+                  </th>
+                  <th>
+                    <button
+                      className="task-table-sort-button"
+                      type="button"
+                      onClick={() => toggleTaskTableSort('status')}
+                    >
+                      ステータス
+                      <span>{buildTaskTableSortIndicator('status')}</span>
+                    </button>
+                  </th>
+                  <th>
+                    <button
+                      className="task-table-sort-button"
+                      type="button"
+                      onClick={() => toggleTaskTableSort('priority')}
+                    >
+                      優先度
+                      <span>{buildTaskTableSortIndicator('priority')}</span>
+                    </button>
+                  </th>
+                  <th>
+                    <button
+                      className="task-table-sort-button"
+                      type="button"
+                      onClick={() => toggleTaskTableSort('estimatedMinutes')}
+                    >
+                      見積
+                      <span>{buildTaskTableSortIndicator('estimatedMinutes')}</span>
+                    </button>
+                  </th>
+                  <th>
+                    <button
+                      className="task-table-sort-button"
+                      type="button"
+                      onClick={() => toggleTaskTableSort('actualMinutes')}
+                    >
+                      実績
+                      <span>{buildTaskTableSortIndicator('actualMinutes')}</span>
+                    </button>
+                  </th>
+                  <th>操作</th>
                 </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {sortedTasks.map((task) => (
+                  <tr key={task.id} className={`task-row status-${task.status}`}>
+                    <td>
+                      <div className="task-cell-title">{task.project}</div>
+                      <div className="task-cell-title">{task.category || '-'}</div>
+                    </td>
+                    <td>
+                      <div className="task-cell-title">{task.title}</div>
+                      <div className="task-cell-sub">{task.memo || '-'}</div>
+                    </td>
+                    <td>
+                      <select
+                        className={`task-status-select status-${task.status}`}
+                        value={task.status}
+                        onChange={(event) =>
+                          void saveTask({ ...task, status: event.target.value as TaskStatus })
+                        }
+                      >
+                        {STATUS_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>
+                      <span className={`task-priority priority-${task.priority}`}>
+                        {task.priority}
+                      </span>
+                    </td>
+                    <td>
+                      <div>{buildTimeRangeText(task.estimated.start, task.estimated.end)}</div>
+                      <div>
+                        {formatDurationForList(task.estimated.minutes, taskTimeDisplayMode)}
+                      </div>
+                    </td>
+                    <td>
+                      <div>{buildActualTimeRangeText(task)}</div>
+                      <div>{formatDurationForList(task.actual.minutes, taskTimeDisplayMode)}</div>
+                    </td>
+                    <td>
+                      <div className="task-row-actions">
+                        <button type="button" onClick={() => openEditModal(task)}>
+                          詳細
+                        </button>
+                        <button
+                          className="start"
+                          type="button"
+                          onClick={() => void handleStart(task)}
+                          disabled={task.status === 'doing' || task.status === 'suspend'}
+                        >
+                          開始
+                        </button>
+                        {task.status === 'suspend' ? (
+                          <button
+                            className="resume"
+                            type="button"
+                            onClick={() => void handleResume(task)}
+                          >
+                            再開
+                          </button>
+                        ) : (
+                          <button
+                            className="suspend"
+                            type="button"
+                            onClick={() => void handleSuspend(task)}
+                            disabled={task.status !== 'doing'}
+                          >
+                            中断
+                          </button>
+                        )}
+                        <button type="button" onClick={() => void handleFinish(task)}>
+                          停止
+                        </button>
+                        <button
+                          className="done"
+                          type="button"
+                          onClick={() => void handleDone(task)}
+                        >
+                          完了
+                        </button>
+                        <button
+                          className="danger"
+                          type="button"
+                          onClick={() => void handleDelete(task.id)}
+                        >
+                          削除
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {sortedTasks.length === 0 && !isLoading ? (
+                  <tr>
+                    <td colSpan={7} className="task-empty-row">
+                      {tasks.length === 0
+                        ? `${selectedDateLabel} のタスクはありません。`
+                        : '検索条件に一致するタスクはありません。'}
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
       </section>
 
       {isTaskModalOpen ? (
