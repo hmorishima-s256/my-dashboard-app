@@ -223,6 +223,12 @@ export const TaskBoard = ({
   const [monthlyProjectActuals, setMonthlyProjectActuals] = useState<
     TaskMonthlyProjectActualsResponse['projectActuals']
   >([])
+  const [monthlyCategoryActuals, setMonthlyCategoryActuals] = useState<
+    TaskMonthlyProjectActualsResponse['categoryActuals']
+  >([])
+  const [monthlyTitleActuals, setMonthlyTitleActuals] = useState<
+    TaskMonthlyProjectActualsResponse['titleActuals']
+  >([])
   const [taskTableSortKey, setTaskTableSortKey] = useState<TaskTableSortKey>('createdAt')
   const [taskTableSortDirection, setTaskTableSortDirection] = useState<SortDirection>('asc')
   const [monthlySummarySortKey, setMonthlySummarySortKey] =
@@ -379,6 +385,8 @@ export const TaskBoard = ({
       setProjectCategoryMap(taskResponse.projectCategories)
       setProjectTitleMap(taskResponse.projectTitles)
       setMonthlyProjectActuals(monthlySummaryResponse.projectActuals)
+      setMonthlyCategoryActuals(monthlySummaryResponse.categoryActuals)
+      setMonthlyTitleActuals(monthlySummaryResponse.titleActuals)
     } catch (error) {
       console.error('Failed to load tasks:', error)
       setErrorMessage('タスクの読込に失敗しました。')
@@ -861,7 +869,7 @@ export const TaskBoard = ({
             </div>
           </div>
           {monthlyProjectActuals.length === 0 && !isLoading ? (
-            <p className="task-monthly-summary-empty">対象月の実績タスクはありません。</p>
+            <p className="task-monthly-summary-empty">対象月の案件集計データはありません。</p>
           ) : (
             <div className="task-monthly-summary-table-wrap">
               <table className="task-monthly-summary-table">
@@ -915,6 +923,78 @@ export const TaskBoard = ({
               </table>
             </div>
           )}
+
+          <div className="task-monthly-summary-subsection">
+            <h5>カテゴリ別集計</h5>
+            {monthlyCategoryActuals.length === 0 && !isLoading ? (
+              <p className="task-monthly-summary-empty">対象月のカテゴリ集計データはありません。</p>
+            ) : (
+              <div className="task-monthly-summary-table-wrap">
+                <table className="task-monthly-summary-table">
+                  <thead>
+                    <tr>
+                      <th>案件名</th>
+                      <th>カテゴリ</th>
+                      <th className="task-monthly-summary-numeric">合計実績時間</th>
+                      <th className="task-monthly-summary-numeric">合計見積時間</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {monthlyCategoryActuals.map((categoryActual) => (
+                      <tr key={`${categoryActual.project}-${categoryActual.category}`}>
+                        <td>{categoryActual.project}</td>
+                        <td>{categoryActual.category}</td>
+                        <td className="task-monthly-summary-numeric">
+                          {formatMinutesAsHourMinute(categoryActual.actualMinutes)}
+                        </td>
+                        <td className="task-monthly-summary-numeric">
+                          {formatMinutesAsHourMinute(categoryActual.estimatedMinutes)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          <div className="task-monthly-summary-subsection">
+            <h5>タスク別集計</h5>
+            {monthlyTitleActuals.length === 0 && !isLoading ? (
+              <p className="task-monthly-summary-empty">対象月のタスク集計データはありません。</p>
+            ) : (
+              <div className="task-monthly-summary-table-wrap">
+                <table className="task-monthly-summary-table">
+                  <thead>
+                    <tr>
+                      <th>案件名</th>
+                      <th>カテゴリ</th>
+                      <th>タスク</th>
+                      <th className="task-monthly-summary-numeric">合計実績時間</th>
+                      <th className="task-monthly-summary-numeric">合計見積時間</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {monthlyTitleActuals.map((titleActual) => (
+                      <tr
+                        key={`${titleActual.project}-${titleActual.category}-${titleActual.title}`}
+                      >
+                        <td>{titleActual.project}</td>
+                        <td>{titleActual.category}</td>
+                        <td>{titleActual.title}</td>
+                        <td className="task-monthly-summary-numeric">
+                          {formatMinutesAsHourMinute(titleActual.actualMinutes)}
+                        </td>
+                        <td className="task-monthly-summary-numeric">
+                          {formatMinutesAsHourMinute(titleActual.estimatedMinutes)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </section>
         <div className="task-table-scroll">
           <table>

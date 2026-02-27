@@ -52,7 +52,9 @@ export const createDependencies = (): DependencyBundle => {
     })),
     taskGetMonthlyProjectActuals: vi.fn(async (month: string) => ({
       month,
-      projectActuals: []
+      projectActuals: [],
+      categoryActuals: [],
+      titleActuals: []
     })),
     taskAdd: vi.fn(
       async (taskInput: TaskCreateInput): Promise<Task> => ({

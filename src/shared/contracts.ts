@@ -118,7 +118,24 @@ export type ProjectMonthlyActual = {
   estimatedMinutes: number
 }
 
+export type CategoryMonthlyActual = {
+  project: string
+  category: string
+  actualMinutes: number
+  estimatedMinutes: number
+}
+
+export type TitleMonthlyActual = {
+  project: string
+  category: string
+  title: string
+  actualMinutes: number
+  estimatedMinutes: number
+}
+
 export type TaskMonthlyProjectActualsResponse = {
   month: string
   projectActuals: ProjectMonthlyActual[]
+  categoryActuals: CategoryMonthlyActual[]
+  titleActuals: TitleMonthlyActual[]
 }
