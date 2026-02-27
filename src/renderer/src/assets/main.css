@@ -741,7 +741,8 @@ code {
 
 .task-monthly-summary-month-input,
 .task-monthly-summary-year-input,
-.task-monthly-summary-unit-select {
+.task-monthly-summary-unit-select,
+.task-monthly-summary-number-input {
   border: 1px solid var(--dash-line);
   border-radius: 8px;
   height: 30px;
@@ -753,6 +754,10 @@ code {
 
 .task-monthly-summary-year-input {
   width: 88px;
+}
+
+.task-monthly-summary-number-input {
+  width: 84px;
 }
 
 .task-monthly-summary-table-wrap {
@@ -839,6 +844,21 @@ code {
   gap: 8px;
 }
 
+.task-table-filter-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(143, 170, 212, 0.12);
+}
+
+.task-table-filter-row label {
+  color: #dbe9ff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .task-table-search-input,
 .task-summary-search-input {
   border: 1px solid var(--dash-line);
@@ -856,6 +876,31 @@ code {
 
 .task-summary-search-input {
   width: 220px;
+}
+
+.task-filter-select,
+.task-filter-number-input {
+  border: 1px solid var(--dash-line);
+  border-radius: 8px;
+  height: 30px;
+  padding: 0 8px;
+  color: #eaf4ff;
+  font-size: 12px;
+  background: rgba(10, 18, 34, 0.95);
+}
+
+.task-filter-select {
+  min-width: 92px;
+}
+
+.task-filter-number-input {
+  width: 78px;
+}
+
+.task-filter-range-separator {
+  color: var(--dash-text-muted);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .task-table-title-wrap {
@@ -1307,6 +1352,15 @@ code {
 
   .task-table-header-actions {
     width: 100%;
+  }
+
+  .task-table-filter-row {
+    width: 100%;
+  }
+
+  .task-filter-select,
+  .task-filter-number-input {
+    min-width: 0;
   }
 
   .task-table-search-input,
