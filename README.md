@@ -39,7 +39,7 @@ The dev container uses named volumes so the following data survives container re
 
 ### Standard VS Code extensions in Dev Container
 
-The dev container defines the team-standard extension set in `.devcontainer/devcontainer.json` (`customizations.vscode.extensions`).
+The dev container defines the standard extension set in `.devcontainer/devcontainer.json` (`customizations.vscode.extensions`).
 
 - `dbaeumer.vscode-eslint`
 - `esbenp.prettier-vscode`
@@ -86,7 +86,7 @@ Policy:
 - Secret files are managed **outside this repository**.
 - Preferred location for Google OAuth credentials is `~/my-dashboard-app/_shared/credentials.json`.
 - You can override the credentials file path with `MY_DASHBOARD_CREDENTIALS_PATH`.
-- Legacy fallback search (project root or parent paths) is kept for compatibility, but not recommended for team operation.
+- Legacy fallback search (project root or parent paths) is kept for compatibility.
 
 Current env usage:
 
@@ -122,6 +122,29 @@ The `タスク` tab provides both daily task management and period-based aggrega
   - `カテゴリ別`: keyword (`案件/カテゴリ`) + minutes range (`実績` / `見積`)
   - `タスク別`: keyword (`案件/カテゴリ/タスク`) + minutes range (`実績` / `見積`)
   - `タスク一覧`: keyword (`案件/カテゴリ/タスク`) + `ステータス` + `優先度` + minutes range (`実績` / `見積`)
+
+## Development Flow
+
+This is a personal tool. Branch from `development`, merge back after CI passes and UI is confirmed via Electron Skill.
+
+```bash
+# Branch from development
+git switch development && git pull --ff-only
+git switch -c feat/xxxx
+
+# Check before merge
+npm run format && npm run lint && npm run typecheck && npm run test
+
+# UI check with Electron Skill
+npm run dev -- --remote-debugging-port=9222
+# (in another terminal)
+agent-browser connect 9222 && agent-browser snapshot -i
+
+# PR, approve, merge
+gh pr create --base development --fill
+gh pr checks --watch
+gh pr review --approve && gh pr merge --squash --delete-branch
+```
 
 ## Project Setup
 
