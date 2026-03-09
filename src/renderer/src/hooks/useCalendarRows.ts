@@ -48,7 +48,10 @@ export const useCalendarRows = ({
         setLastUpdatedAt(new Date())
         setFetchError(null)
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'カレンダーの取得に失敗しました'
+        const raw = error instanceof Error ? error.message : ''
+        const message = raw.includes('invalid_grant')
+          ? 'Googleの認証トークンが期限切れです。一度ログアウトして再ログインしてください。'
+          : raw || 'カレンダーの取得に失敗しました'
         setFetchError(message)
       }
     },
