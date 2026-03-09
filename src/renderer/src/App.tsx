@@ -22,7 +22,10 @@ function App(): React.JSX.Element {
   const dateEditor = useDateEditor()
   const auth = useAuthController()
   const settings = useDashboardSettings()
-  const calendarRows = useCalendarRows({ selectedDateRef })
+  const calendarRows = useCalendarRows({
+    selectedDateRef,
+    onAutoSyncToday: dateEditor.setSelectedDate
+  })
   const selectedDate = dateEditor.selectedDate
   const isDateEditorOpen = dateEditor.isDateEditorOpen
   const closeDateEditor = dateEditor.closeEditor
