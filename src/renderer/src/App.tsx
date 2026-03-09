@@ -167,7 +167,12 @@ function App(): React.JSX.Element {
 
       <section className="content-panel">
         {activeTab === 'schedule' ? (
-          <ScheduleTable rows={calendarRows.rows} />
+          <>
+            {calendarRows.fetchError ? (
+              <p className="calendar-fetch-error">{calendarRows.fetchError}</p>
+            ) : null}
+            <ScheduleTable rows={calendarRows.rows} />
+          </>
         ) : (
           <TaskBoard
             selectedDate={dateEditor.selectedDate}

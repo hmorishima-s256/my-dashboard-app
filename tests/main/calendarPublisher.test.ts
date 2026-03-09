@@ -51,7 +51,7 @@ describe('calendarPublisher', () => {
     expect(new Date(payload.updatedAt).toString()).not.toBe('Invalid Date')
   })
 
-  it('取得失敗時は空配列を返し、例外を外へ投げない', async () => {
+  it('auto取得失敗時は空配列を返し、例外を外へ投げない', async () => {
     const getEventsByDate = vi.fn(async () => {
       throw new Error('fetch failed')
     })
@@ -69,6 +69,24 @@ describe('calendarPublisher', () => {
     expect(consoleErrorSpy).toHaveBeenCalled()
 
     consoleErrorSpy.mockRestore()
+  })
+
+  it('manual取得失敗時は例外を投げる', async () => {
+    const getEventsByDate = vi.fn(async () => {
+      throw new Error('fetch failed')
+    })
+    const send = vi.fn()
+
+    const publisher = createCalendarPublisher({
+      getCurrentUser: () => user,
+      getMainWindow: () => ({ isDestroyed: () => false, webContents: { send } }),
+      getEventsByDate
+    })
+
+    await expect(publisher.fetchAndPublishByDate('2026-02-18', 'manual')).rejects.toThrow(
+      'fetch failed'
+    )
+    expect(send).not.toHaveBeenCalled()
   })
 
   it('空配信は manual ソースで送信する', () => {

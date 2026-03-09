@@ -61,7 +61,11 @@ export const createAutoFetchScheduler = (
 
     if (!shouldFetch) return
 
-    await dependencies.fetchByDate(buildDateKey(now), 'auto')
+    try {
+      await dependencies.fetchByDate(buildDateKey(now), 'auto')
+    } catch (error) {
+      console.error('Auto-fetch calendar error:', error)
+    }
     dependencies.setLastIntervalFetchAtMs(nowMs)
   }
 
