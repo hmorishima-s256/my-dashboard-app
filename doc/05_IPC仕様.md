@@ -72,6 +72,7 @@
   - `events: CalendarTableRow[]`
   - `updatedAt: string`
   - `source: 'manual' | 'auto'`
+  - `targetDate: string` — 取得対象日（`YYYY-MM-DD`）。`source=auto` 時にRendererが選択日を追従させるために使用。空文字はログアウト時の空配信。
 
 ## 5.5 共有型（抜粋）
 
