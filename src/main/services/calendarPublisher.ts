@@ -36,7 +36,8 @@ export const createCalendarPublisher = (
       const payload: CalendarUpdatePayload = {
         events,
         updatedAt: new Date().toISOString(),
-        source
+        source,
+        targetDate
       }
 
       const mainWindow = dependencies.getMainWindow()
@@ -67,7 +68,8 @@ export const createCalendarPublisher = (
     const payload: CalendarUpdatePayload = {
       events: [],
       updatedAt: new Date().toISOString(),
-      source: 'manual'
+      source: 'manual',
+      targetDate: ''
     }
     mainWindow.webContents.send('calendar-updated', payload)
   }

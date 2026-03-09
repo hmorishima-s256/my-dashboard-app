@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
-import { formatInputDate } from '../lib/dateUtils'
 import type { CalendarTableRow, CalendarUpdatePayload, UserProfile } from '../types/ui'
 import type { RefObject } from 'react'
 
 type UseCalendarRowsOptions = {
   selectedDateRef: RefObject<string>
+  onAutoSyncToday?: (date: string) => void
 }
 
 type UseCalendarRowsResult = {
@@ -17,7 +17,8 @@ type UseCalendarRowsResult = {
 
 // 予定一覧の表示状態と同期処理を担当するフック
 export const useCalendarRows = ({
-  selectedDateRef
+  selectedDateRef,
+  onAutoSyncToday
 }: UseCalendarRowsOptions): UseCalendarRowsResult => {
   const [rows, setRows] = useState<CalendarTableRow[]>([])
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
@@ -27,8 +28,8 @@ export const useCalendarRows = ({
     let isMounted = true
     const unsubscribe = window.api.onCalendarUpdated((payload: CalendarUpdatePayload) => {
       if (!isMounted) return
-      if (payload.source === 'auto' && selectedDateRef.current !== formatInputDate(new Date())) {
-        return
+      if (payload.source === 'auto' && payload.targetDate) {
+        onAutoSyncToday?.(payload.targetDate)
       }
       setRows(payload.events)
       setLastUpdatedAt(new Date(payload.updatedAt))
@@ -37,7 +38,7 @@ export const useCalendarRows = ({
       isMounted = false
       unsubscribe()
     }
-  }, [selectedDateRef])
+  }, [onAutoSyncToday, selectedDateRef])
 
   const fetchSchedule = useCallback(
     async (currentUser: UserProfile | null, targetDate: string): Promise<void> => {

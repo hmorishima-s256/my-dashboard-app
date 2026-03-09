@@ -33,6 +33,7 @@ export type CalendarUpdatePayload = {
   events: CalendarTableRow[]
   updatedAt: string
   source: 'manual' | 'auto'
+  targetDate: string
 }
 
 // タスク時間の表示形式

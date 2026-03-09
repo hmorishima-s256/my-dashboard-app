@@ -43,11 +43,12 @@ describe('calendarPublisher', () => {
     expect(send).toHaveBeenCalledTimes(1)
     const [channel, payload] = send.mock.calls[0] as [
       string,
-      { source: string; events: CalendarTableRow[]; updatedAt: string }
+      { source: string; events: CalendarTableRow[]; updatedAt: string; targetDate: string }
     ]
     expect(channel).toBe('calendar-updated')
     expect(payload.events).toEqual(rows)
     expect(payload.source).toBe('manual')
+    expect(payload.targetDate).toBe('2026-02-18')
     expect(new Date(payload.updatedAt).toString()).not.toBe('Invalid Date')
   })
 
