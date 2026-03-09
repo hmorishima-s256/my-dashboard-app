@@ -39,7 +39,7 @@ npm run typecheck
 npm run test
 ```
 
-テスト基準: **13 test files / 59 tests** がすべて passed であること。
+テスト基準: **14 test files / 67 tests** がすべて passed であること。
 
 ## ディレクトリ構成
 
@@ -122,10 +122,9 @@ git switch -c feat/xxxx
 # DoD チェック
 npm run format && npm run lint && npm run typecheck && npm run test
 
-# PR 作成 → CI 確認 → 自動承認マージ
+# PR 作成 → CI 確認 → マージ
 gh pr create --base development --fill
 gh pr checks --watch
-gh pr review --approve
 gh pr merge --squash --delete-branch
 git switch development && git pull --ff-only
 ```

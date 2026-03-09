@@ -31,12 +31,13 @@ export const createCalendarPublisher = (
       return []
     }
 
-    try {
+    const doFetch = async (): Promise<CalendarTableRow[]> => {
       const events = await dependencies.getEventsByDate(targetDate)
       const payload: CalendarUpdatePayload = {
         events,
         updatedAt: new Date().toISOString(),
-        source
+        source,
+        targetDate
       }
 
       const mainWindow = dependencies.getMainWindow()
@@ -45,10 +46,19 @@ export const createCalendarPublisher = (
       }
 
       return events
-    } catch (error) {
-      console.error('Google Calendar Error:', error)
-      return []
     }
+
+    if (source === 'auto') {
+      try {
+        return await doFetch()
+      } catch (error) {
+        console.error('Google Calendar Error:', error)
+        return []
+      }
+    }
+
+    // manual: propagate errors so callers can show feedback
+    return await doFetch()
   }
 
   const publishEmptyManualUpdate = (): void => {
@@ -58,7 +68,8 @@ export const createCalendarPublisher = (
     const payload: CalendarUpdatePayload = {
       events: [],
       updatedAt: new Date().toISOString(),
-      source: 'manual'
+      source: 'manual',
+      targetDate: ''
     }
     mainWindow.webContents.send('calendar-updated', payload)
   }

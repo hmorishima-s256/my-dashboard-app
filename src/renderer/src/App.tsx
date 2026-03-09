@@ -22,7 +22,10 @@ function App(): React.JSX.Element {
   const dateEditor = useDateEditor()
   const auth = useAuthController()
   const settings = useDashboardSettings()
-  const calendarRows = useCalendarRows({ selectedDateRef })
+  const calendarRows = useCalendarRows({
+    selectedDateRef,
+    onAutoSyncToday: dateEditor.setSelectedDate
+  })
   const selectedDate = dateEditor.selectedDate
   const isDateEditorOpen = dateEditor.isDateEditorOpen
   const closeDateEditor = dateEditor.closeEditor
@@ -167,7 +170,12 @@ function App(): React.JSX.Element {
 
       <section className="content-panel">
         {activeTab === 'schedule' ? (
-          <ScheduleTable rows={calendarRows.rows} />
+          <>
+            {calendarRows.fetchError ? (
+              <p className="calendar-fetch-error">{calendarRows.fetchError}</p>
+            ) : null}
+            <ScheduleTable rows={calendarRows.rows} />
+          </>
         ) : (
           <TaskBoard
             selectedDate={dateEditor.selectedDate}

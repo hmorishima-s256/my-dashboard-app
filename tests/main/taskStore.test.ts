@@ -230,6 +230,39 @@ describe('taskStoreService', () => {
     })
   })
 
+  it('全期間集計（all）と日付範囲集計（range）ができる', async () => {
+    const rootPath = await createTempRoot()
+    const { createTaskStoreService } = await loadTaskStoreModule(rootPath)
+    const user: UserProfile = { name: 'Test', email: 'allrange@example.com', iconUrl: '' }
+    let idCounter = 0
+
+    const taskStore = createTaskStoreService({
+      getCurrentUser: () => user,
+      createId: () => `task-ar-${idCounter++}`,
+      getNow: () => new Date('2026-02-18T00:00:00.000Z')
+    })
+
+    await taskStore.add(
+      createTaskInput({ date: '2025-12-01', project: '案件X', actual: { minutes: 10 } })
+    )
+    await taskStore.add(
+      createTaskInput({ date: '2026-01-15', project: '案件Y', actual: { minutes: 20 } })
+    )
+    await taskStore.add(
+      createTaskInput({ date: '2026-03-10', project: '案件Z', actual: { minutes: 30 } })
+    )
+
+    const allResult = await taskStore.getMonthlyProjectActuals('all')
+    expect(allResult.periodUnit).toBe('all')
+    expect(allResult.projectActuals.map((p) => p.project)).toEqual(['案件X', '案件Y', '案件Z'])
+
+    const rangeResult = await taskStore.getMonthlyProjectActuals('2026-01-01~2026-02-28')
+    expect(rangeResult.periodUnit).toBe('range')
+    expect(rangeResult.dateFrom).toBe('2026-01-01')
+    expect(rangeResult.dateTo).toBe('2026-02-28')
+    expect(rangeResult.projectActuals.map((p) => p.project)).toEqual(['案件Y'])
+  })
+
   it('集計期間が不正な場合はエラーになる', async () => {
     const rootPath = await createTempRoot()
     const { createTaskStoreService } = await loadTaskStoreModule(rootPath)
