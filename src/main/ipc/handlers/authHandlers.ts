@@ -14,7 +14,11 @@ export const registerAuthHandlers = (dependencies: MainIpcHandlerDependencies): 
       dependencies.resetAutoFetchRunState()
       dependencies.restartAutoFetchScheduler()
       dependencies.ensureMainWindowVisible()
-      await dependencies.fetchAndPublishByDate(dependencies.buildDateKey(new Date()), 'manual')
+      try {
+        await dependencies.fetchAndPublishByDate(dependencies.buildDateKey(new Date()), 'manual')
+      } catch (calendarError) {
+        console.warn('Post-login calendar fetch failed:', calendarError)
+      }
       return { success: true, user: dependencies.getCurrentUser(), message: '' }
     } catch (error) {
       return {

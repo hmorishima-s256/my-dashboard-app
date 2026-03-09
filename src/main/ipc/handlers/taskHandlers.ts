@@ -5,6 +5,7 @@ import type { MainIpcHandlerDependencies } from './types'
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 const YEAR_PATTERN = /^\d{4}$/
 const MONTH_PATTERN = /^\d{4}-\d{2}$/
+const DATE_RANGE_PATTERN = /^\d{4}-\d{2}-\d{2}~\d{4}-\d{2}-\d{2}$/
 
 // タスク関連 IPC を登録する
 export const registerTaskHandlers = (dependencies: MainIpcHandlerDependencies): void => {
@@ -25,7 +26,10 @@ export const registerTaskHandlers = (dependencies: MainIpcHandlerDependencies): 
       const fallbackPeriod = dependencies.buildDateKey(new Date()).slice(0, 7)
       const requestedPeriod =
         typeof targetPeriod === 'string' &&
-        (MONTH_PATTERN.test(targetPeriod) || YEAR_PATTERN.test(targetPeriod))
+        (MONTH_PATTERN.test(targetPeriod) ||
+          YEAR_PATTERN.test(targetPeriod) ||
+          targetPeriod === 'all' ||
+          DATE_RANGE_PATTERN.test(targetPeriod))
           ? targetPeriod
           : fallbackPeriod
       return await dependencies.taskGetMonthlyProjectActuals(requestedPeriod)

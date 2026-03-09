@@ -65,6 +65,22 @@ describe('taskHandlers', () => {
     expect(dependencies.taskGetMonthlyProjectActuals).toHaveBeenCalledWith('2026')
   })
 
+  it('task:get-monthly-project-actuals は all と日付範囲を受け付ける', async () => {
+    const { dependencies } = createDependencies()
+    registerTaskHandlers(dependencies)
+    const handler = getRegisteredHandler('task:get-monthly-project-actuals')
+
+    await handler({}, 'guest', 'all')
+    expect(dependencies.taskGetMonthlyProjectActuals).toHaveBeenCalledWith('all')
+
+    await handler({}, 'guest', '2026-01-01~2026-03-31')
+    expect(dependencies.taskGetMonthlyProjectActuals).toHaveBeenCalledWith('2026-01-01~2026-03-31')
+
+    // invalid range format falls back
+    await handler({}, 'guest', '2026-01-01~invalid')
+    expect(dependencies.taskGetMonthlyProjectActuals).toHaveBeenCalledWith('2026-02')
+  })
+
   it('task:get-monthly-project-actuals は対象期間の案件別実績を返却する', async () => {
     const { dependencies } = createDependencies()
     const summaryResponse: TaskMonthlyProjectActualsResponse = {

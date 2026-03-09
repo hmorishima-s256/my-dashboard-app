@@ -10,6 +10,7 @@ type UseCalendarRowsOptions = {
 type UseCalendarRowsResult = {
   rows: CalendarTableRow[]
   lastUpdatedAt: Date | null
+  fetchError: string | null
   fetchSchedule: (currentUser: UserProfile | null, targetDate: string) => Promise<void>
   clearRows: () => void
 }
@@ -20,6 +21,7 @@ export const useCalendarRows = ({
 }: UseCalendarRowsOptions): UseCalendarRowsResult => {
   const [rows, setRows] = useState<CalendarTableRow[]>([])
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
+  const [fetchError, setFetchError] = useState<string | null>(null)
 
   useEffect(() => {
     let isMounted = true
@@ -40,9 +42,15 @@ export const useCalendarRows = ({
   const fetchSchedule = useCallback(
     async (currentUser: UserProfile | null, targetDate: string): Promise<void> => {
       if (!currentUser) return
-      const events = await window.api.getCalendar(targetDate)
-      setRows(events)
-      setLastUpdatedAt(new Date())
+      try {
+        const events = await window.api.getCalendar(targetDate)
+        setRows(events)
+        setLastUpdatedAt(new Date())
+        setFetchError(null)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'カレンダーの取得に失敗しました'
+        setFetchError(message)
+      }
     },
     []
   )
@@ -50,11 +58,13 @@ export const useCalendarRows = ({
   const clearRows = (): void => {
     setRows([])
     setLastUpdatedAt(null)
+    setFetchError(null)
   }
 
   return {
     rows,
     lastUpdatedAt,
+    fetchError,
     fetchSchedule,
     clearRows
   }

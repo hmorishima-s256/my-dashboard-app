@@ -57,7 +57,7 @@ type SelectOption = {
 
 type DurationUnit = 'hourMinute' | 'decimalHours' | 'minutes'
 type TaskModalMode = 'create' | 'edit'
-type SummaryPeriodUnit = 'month' | 'year'
+type SummaryPeriodUnit = 'month' | 'year' | 'all' | 'range'
 type TaskContentTab = 'list' | 'summary'
 
 const STATUS_OPTIONS: Array<{ value: TaskStatus; label: string }> = [
@@ -267,6 +267,9 @@ export const TaskBoard = ({
   const selectedDateMonth = selectedDate.slice(0, 7)
   const [summaryPeriodUnit, setSummaryPeriodUnit] = useState<SummaryPeriodUnit>('month')
   const [summaryPeriod, setSummaryPeriod] = useState(selectedDateMonth)
+  const [summaryYearDraft, setSummaryYearDraft] = useState(selectedDateYear)
+  const [summaryRangeDateFrom, setSummaryRangeDateFrom] = useState(selectedDate)
+  const [summaryRangeDateTo, setSummaryRangeDateTo] = useState(selectedDate)
   const [summarySearchKeywordInput, setSummarySearchKeywordInput] = useState('')
   const [summaryActualMinutesMinInput, setSummaryActualMinutesMinInput] = useState('')
   const [summaryActualMinutesMaxInput, setSummaryActualMinutesMaxInput] = useState('')
@@ -539,7 +542,13 @@ export const TaskBoard = ({
   }, [loadTaskData])
 
   useEffect(() => {
-    setSummaryPeriod(summaryPeriodUnit === 'month' ? selectedDateMonth : selectedDateYear)
+    if (summaryPeriodUnit === 'month') {
+      setSummaryPeriod(selectedDateMonth)
+    } else if (summaryPeriodUnit === 'year') {
+      setSummaryPeriod(selectedDateYear)
+      setSummaryYearDraft(selectedDateYear)
+    }
+    // 'all' and 'range' are not auto-reset on date change
   }, [selectedDateMonth, selectedDateYear, summaryPeriodUnit])
 
   const resetForm = (): void => {
@@ -974,17 +983,48 @@ export const TaskBoard = ({
 
   const handleChangeSummaryPeriodUnit = (value: SummaryPeriodUnit): void => {
     setSummaryPeriodUnit(value)
-    setSummaryPeriod(value === 'month' ? selectedDateMonth : selectedDateYear)
+    if (value === 'month') {
+      setSummaryPeriod(selectedDateMonth)
+    } else if (value === 'year') {
+      setSummaryPeriod(selectedDateYear)
+      setSummaryYearDraft(selectedDateYear)
+    } else if (value === 'all') {
+      setSummaryPeriod('all')
+    } else if (value === 'range') {
+      setSummaryRangeDateFrom(selectedDate)
+      setSummaryRangeDateTo(selectedDate)
+      setSummaryPeriod(`${selectedDate}~${selectedDate}`)
+    }
   }
 
   const handleChangeSummaryPeriod = (value: string): void => {
     if (summaryPeriodUnit === 'month') {
       if (!MONTH_PATTERN.test(value)) return
       setSummaryPeriod(value)
-      return
     }
-    if (!YEAR_PATTERN.test(value)) return
-    setSummaryPeriod(value)
+    // year: handled via draft state (handleChangeSummaryYearDraft / handleBlurSummaryYear)
+  }
+
+  const handleChangeSummaryYearDraft = (value: string): void => {
+    setSummaryYearDraft(value)
+  }
+
+  const handleBlurSummaryYear = (): void => {
+    if (YEAR_PATTERN.test(summaryYearDraft)) {
+      setSummaryPeriod(summaryYearDraft)
+    } else {
+      setSummaryYearDraft(summaryPeriod)
+    }
+  }
+
+  const handleChangeSummaryRangeFrom = (value: string): void => {
+    setSummaryRangeDateFrom(value)
+    setSummaryPeriod(`${value}~${summaryRangeDateTo}`)
+  }
+
+  const handleChangeSummaryRangeTo = (value: string): void => {
+    setSummaryRangeDateTo(value)
+    setSummaryPeriod(`${summaryRangeDateFrom}~${value}`)
   }
 
   return (
@@ -1122,7 +1162,15 @@ export const TaskBoard = ({
             className="task-monthly-summary"
           >
             <div className="task-monthly-summary-header">
-              <h4>タスク集計（{summaryPeriod}）</h4>
+              <h4>
+                タスク集計（
+                {summaryPeriodUnit === 'all'
+                  ? '全期間'
+                  : summaryPeriodUnit === 'range'
+                    ? `${summaryRangeDateFrom}～${summaryRangeDateTo}`
+                    : summaryPeriod}
+                ）
+              </h4>
               <div className="task-monthly-summary-controls">
                 <label htmlFor="task-monthly-summary-unit">単位</label>
                 <select
@@ -1135,6 +1183,8 @@ export const TaskBoard = ({
                 >
                   <option value="month">月次</option>
                   <option value="year">年次</option>
+                  <option value="all">全期間</option>
+                  <option value="range">期間指定</option>
                 </select>
                 {summaryPeriodUnit === 'month' ? (
                   <>
@@ -1147,7 +1197,7 @@ export const TaskBoard = ({
                       onChange={(event) => handleChangeSummaryPeriod(event.target.value)}
                     />
                   </>
-                ) : (
+                ) : summaryPeriodUnit === 'year' ? (
                   <>
                     <label htmlFor="task-monthly-summary-period-year">対象年</label>
                     <input
@@ -1158,11 +1208,32 @@ export const TaskBoard = ({
                       min="2000"
                       max="9999"
                       step="1"
-                      value={summaryPeriod}
-                      onChange={(event) => handleChangeSummaryPeriod(event.target.value)}
+                      value={summaryYearDraft}
+                      onChange={(event) => handleChangeSummaryYearDraft(event.target.value)}
+                      onBlur={handleBlurSummaryYear}
                     />
                   </>
-                )}
+                ) : summaryPeriodUnit === 'range' ? (
+                  <>
+                    <label htmlFor="task-monthly-summary-range-from">開始日</label>
+                    <input
+                      id="task-monthly-summary-range-from"
+                      className="task-monthly-summary-date-input"
+                      type="date"
+                      value={summaryRangeDateFrom}
+                      onChange={(event) => handleChangeSummaryRangeFrom(event.target.value)}
+                    />
+                    <span className="task-filter-range-separator">～</span>
+                    <label htmlFor="task-monthly-summary-range-to">終了日</label>
+                    <input
+                      id="task-monthly-summary-range-to"
+                      className="task-monthly-summary-date-input"
+                      type="date"
+                      value={summaryRangeDateTo}
+                      onChange={(event) => handleChangeSummaryRangeTo(event.target.value)}
+                    />
+                  </>
+                ) : null}
                 <label htmlFor="task-monthly-summary-search">検索</label>
                 <input
                   id="task-monthly-summary-search"

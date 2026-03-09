@@ -40,6 +40,7 @@ const TASK_FILE_NAME = 'tasks.json'
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 const YEAR_PATTERN = /^\d{4}$/
 const MONTH_PATTERN = /^\d{4}-\d{2}$/
+const DATE_RANGE_PATTERN = /^(\d{4}-\d{2}-\d{2})~(\d{4}-\d{2}-\d{2})$/
 const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/
 const TASK_STATUS_SET: Set<TaskStatus> = new Set([
   'todo',
@@ -66,12 +67,24 @@ const normalizeDate = (value: string): string => {
   return value
 }
 
-const normalizePeriod = (value: string): { period: string; periodUnit: 'month' | 'year' } => {
+type NormalizedPeriod =
+  | { period: string; periodUnit: 'month' | 'year' }
+  | { period: 'all'; periodUnit: 'all' }
+  | { period: string; periodUnit: 'range'; dateFrom: string; dateTo: string }
+
+const normalizePeriod = (value: string): NormalizedPeriod => {
+  if (value === 'all') {
+    return { period: 'all', periodUnit: 'all' }
+  }
   if (MONTH_PATTERN.test(value)) {
     return { period: value, periodUnit: 'month' }
   }
   if (YEAR_PATTERN.test(value)) {
     return { period: value, periodUnit: 'year' }
+  }
+  const rangeMatch = DATE_RANGE_PATTERN.exec(value)
+  if (rangeMatch) {
+    return { period: value, periodUnit: 'range', dateFrom: rangeMatch[1], dateTo: rangeMatch[2] }
   }
   throw new Error(`Invalid task period: ${value}`)
 }
@@ -254,17 +267,24 @@ const buildTaskListResponse = (schema: TaskSchema, date: string): TaskListRespon
   }
 }
 
+const isTaskInPeriod = (task: Task, normalized: NormalizedPeriod): boolean => {
+  if (normalized.periodUnit === 'all') return true
+  if (normalized.periodUnit === 'range') {
+    return task.date >= normalized.dateFrom && task.date <= normalized.dateTo
+  }
+  const periodPrefix = `${normalized.period}-`
+  return task.date.startsWith(periodPrefix)
+}
+
 const buildMonthlyProjectActualsResponse = (
   schema: TaskSchema,
-  period: string,
-  periodUnit: 'month' | 'year'
+  normalized: NormalizedPeriod
 ): TaskMonthlyProjectActualsResponse => {
   const projectSummaryMap = new Map<string, { actualMinutes: number; estimatedMinutes: number }>()
   const categorySummaryMap = new Map<string, { actualMinutes: number; estimatedMinutes: number }>()
   const titleSummaryMap = new Map<string, { actualMinutes: number; estimatedMinutes: number }>()
-  const periodPrefix = `${period}-`
   schema.tasks.forEach((task) => {
-    if (!task.date.startsWith(periodPrefix)) return
+    if (!isTaskInPeriod(task, normalized)) return
     const projectName = normalizeText(task.project)
     if (!projectName) return
     const categoryName = normalizeText(task.category) || '-'
@@ -342,13 +362,18 @@ const buildMonthlyProjectActualsResponse = (
       return a.title.localeCompare(b.title, 'ja')
     })
 
-  return {
-    period,
-    periodUnit,
+  const result: TaskMonthlyProjectActualsResponse = {
+    period: normalized.period,
+    periodUnit: normalized.periodUnit,
     projectActuals,
     categoryActuals,
     titleActuals
   }
+  if (normalized.periodUnit === 'range') {
+    result.dateFrom = normalized.dateFrom
+    result.dateTo = normalized.dateTo
+  }
+  return result
 }
 
 // lowdb を利用したタスク保存サービス（ログインユーザーは永続、ゲストはセッション限定）
@@ -415,11 +440,7 @@ export const createTaskStoreService = (
     const userId = resolveUserId()
     const normalizedPeriod = normalizePeriod(period)
     const { db } = await getLoadedSchema(userId)
-    return buildMonthlyProjectActualsResponse(
-      db.data,
-      normalizedPeriod.period,
-      normalizedPeriod.periodUnit
-    )
+    return buildMonthlyProjectActualsResponse(db.data, normalizedPeriod)
   }
 
   const add = async (input: TaskCreateInput): Promise<Task> => {

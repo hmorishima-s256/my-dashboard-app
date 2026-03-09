@@ -697,6 +697,12 @@ code {
   cursor: not-allowed;
 }
 
+.calendar-fetch-error {
+  margin: 8px 12px;
+  color: #ff9fb4;
+  font-size: 12px;
+}
+
 .task-inline-error {
   margin: 8px 12px 0;
   color: #ff9fb4;
@@ -758,6 +764,7 @@ code {
 
 .task-monthly-summary-month-input,
 .task-monthly-summary-year-input,
+.task-monthly-summary-date-input,
 .task-monthly-summary-unit-select,
 .task-monthly-summary-number-input {
   border: 1px solid var(--dash-line);
@@ -771,6 +778,10 @@ code {
 
 .task-monthly-summary-year-input {
   width: 88px;
+}
+
+.task-monthly-summary-date-input {
+  width: 130px;
 }
 
 .task-monthly-summary-number-input {
