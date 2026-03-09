@@ -136,7 +136,7 @@ git switch development && git pull --ff-only
 ```bash
 gh pr create --base main --head development --fill
 gh pr checks --watch
-gh pr merge --merge
+gh pr merge --merge   # --delete-branch は絶対に付けない（development は永続ブランチ）
 git switch main && git pull --ff-only
 git switch development && git pull --ff-only
 ```
