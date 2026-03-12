@@ -29,3 +29,6 @@ RUN apt-get update \
     xvfb \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
+
+# Claude Code をグローバルインストール
+RUN npm install -g @anthropic-ai/claude-code

@@ -1,14 +1,202 @@
 {
   "permissions": {
     "allow": [
-      "Bash(*)",
+      // ファイル操作
       "Read(*)",
       "Write(*)",
       "Edit(*)",
       "MultiEdit(*)",
       "WebFetch(*)",
-      "TodoWrite(*)"
+      "TodoWrite(*)",
+
+      // npm / npx
+      "Bash(npm run *)",
+      "Bash(npm install*)",
+      "Bash(npm ci*)",
+      "Bash(npm update*)",
+      "Bash(npm uninstall*)",
+      "Bash(npm audit*)",
+      "Bash(npm dedupe*)",
+      "Bash(npm ls*)",
+      "Bash(npx *)",
+
+      // git 読み取り系
+      "Bash(git status*)",
+      "Bash(git log*)",
+      "Bash(git diff*)",
+      "Bash(git fetch*)",
+      "Bash(git show*)",
+      "Bash(git branch*)",
+      "Bash(git switch*)",
+      "Bash(git pull --ff-only*)",
+
+      // git 書き込み系
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git stash *)",
+      "Bash(git merge *)",
+      "Bash(git rebase *)",
+      "Bash(git reset *)",
+      "Bash(git push *)",
+      "Bash(git tag *)",
+      "Bash(git restore *)",
+      "Bash(git cherry-pick *)",
+
+      // gh 読み取り系
+      "Bash(gh issue list*)",
+      "Bash(gh issue view*)",
+      "Bash(gh pr list*)",
+      "Bash(gh pr view*)",
+      "Bash(gh pr checks*)",
+      "Bash(gh api*)",
+
+      // gh 書き込み系
+      "Bash(gh issue create*)",
+      "Bash(gh issue close*)",
+      "Bash(gh issue edit*)",
+      "Bash(gh issue comment*)",
+      "Bash(gh pr create*)",
+      "Bash(gh pr merge*)",
+      "Bash(gh pr edit*)",
+      "Bash(gh pr review*)",
+      "Bash(gh pr comment*)",
+      "Bash(gh pr ready*)",
+      "Bash(gh release *)",
+
+      // ファイル参照・検索
+      "Bash(ls*)",
+      "Bash(cat*)",
+      "Bash(head*)",
+      "Bash(tail*)",
+      "Bash(less*)",
+      "Bash(more*)",
+      "Bash(grep*)",
+      "Bash(find*)",
+      "Bash(locate*)",
+      "Bash(which*)",
+      "Bash(whereis*)",
+      "Bash(file*)",
+      "Bash(stat*)",
+      "Bash(pwd*)",
+      "Bash(du*)",
+      "Bash(df*)",
+      "Bash(wc*)",
+      "Bash(diff*)",
+
+      // テキスト処理
+      "Bash(echo*)",
+      "Bash(printf*)",
+      "Bash(sed*)",
+      "Bash(awk*)",
+      "Bash(sort*)",
+      "Bash(uniq*)",
+      "Bash(cut*)",
+      "Bash(tr*)",
+      "Bash(xargs*)",
+      "Bash(tee*)",
+      "Bash(column*)",
+      "Bash(jq*)",
+
+      // ファイル・ディレクトリ操作
+      "Bash(cp*)",
+      "Bash(mv*)",
+      "Bash(mkdir*)",
+      "Bash(touch*)",
+      "Bash(ln*)",
+      "Bash(chmod*)",
+      "Bash(chown*)",
+
+      // アーカイブ・圧縮
+      "Bash(tar*)",
+      "Bash(zip*)",
+      "Bash(unzip*)",
+      "Bash(gzip*)",
+      "Bash(gunzip*)",
+
+      // プロセス・システム
+      "Bash(ps*)",
+      "Bash(kill*)",
+      "Bash(pkill*)",
+      "Bash(top*)",
+      "Bash(htop*)",
+      "Bash(uname*)",
+      "Bash(hostname*)",
+      "Bash(uptime*)",
+      "Bash(date*)",
+      "Bash(env*)",
+      "Bash(printenv*)",
+      "Bash(export*)",
+
+      // ネットワーク・通信
+      "Bash(curl*)",
+      "Bash(wget*)",
+      "Bash(ping*)",
+      "Bash(nslookup*)",
+      "Bash(dig*)",
+
+      // ランタイム
+      "Bash(node*)",
+      "Bash(python*)",
+      "Bash(python3*)"
     ],
-    "deny": []
+    "deny": [
+      // 保護ブランチの削除禁止
+      "Bash(git branch -d main)",
+      "Bash(git branch -D main)",
+      "Bash(git branch -d develop)",
+      "Bash(git branch -D develop)",
+      "Bash(git branch -d development)",
+      "Bash(git branch -D development)",
+
+      // 保護ブランチへの直接push禁止
+      "Bash(git push origin main)",
+      "Bash(git push origin develop)",
+      "Bash(git push origin development)",
+      "Bash(git push --force*)",
+      "Bash(git push -f *)",
+
+      // ファイル削除系
+      "Bash(rm *)",
+      "Bash(rm)",
+      "Bash(rmdir*)",
+      "Bash(shred*)",
+      "Bash(truncate*)",
+      "Bash(dd*)",
+
+      // 権限昇格禁止
+      "Bash(sudo*)",
+      "Bash(su *)",
+      "Bash(su)",
+      "Bash(doas*)",
+
+      // 機密パスへのアクセス禁止
+      // SSH鍵
+      "Bash(cat*/.ssh*)",
+      "Bash(cat* .ssh*)",
+      // AWS認証情報
+      "Bash(cat*/.aws*)",
+      "Bash(cat* .aws*)",
+      // GPGキー
+      "Bash(cat*/.gnupg*)",
+      // gh認証トークン
+      "Bash(cat*/.config/gh*)",
+      // .envファイル
+      "Bash(cat* .env)",
+      "Bash(cat* .env.*)",
+      "Bash(cat*.env)",
+
+      // ランタイムインラインコード実行禁止（deny回避防止）
+      "Bash(node -e*)",
+      "Bash(node --eval*)",
+      "Bash(python -c*)",
+      "Bash(python3 -c*)",
+
+      // システム設定の破壊的変更禁止
+      "Bash(chmod 777*)",
+      "Bash(chmod -R 777*)",
+      "Bash(> /etc/*)",
+      "Bash(mkfs*)",
+      "Bash(fdisk*)"
+    ]
   }
 }

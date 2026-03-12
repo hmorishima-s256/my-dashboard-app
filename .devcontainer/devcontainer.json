@@ -17,7 +17,8 @@
     "source=${localWorkspaceFolderBasename}-gh-config,target=/root/.config/gh,type=volume",
     "source=${localWorkspaceFolderBasename}-codex-home,target=/root/.codex,type=volume",
     "source=${localWorkspaceFolderBasename}-vscode-server-extensions,target=/root/.vscode-server/extensions,type=volume",
-    "source=${localWorkspaceFolderBasename}-vscode-server-userdata,target=/root/.vscode-server/data/User,type=volume"
+    "source=${localWorkspaceFolderBasename}-vscode-server-userdata,target=/root/.vscode-server/data/User,type=volume",
+    "source=${localWorkspaceFolderBasename}-claude-home,target=/root/.claude,type=volume"
   ],
   "postCreateCommand": "npm install",
   "customizations": {
@@ -39,6 +40,7 @@
       ]
     }
   },
+  "shutdownAction": "none",
   "forwardPorts": [5173, 6080],
   "portsAttributes": {
     "5173": {
