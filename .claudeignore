@@ -1,0 +1,30 @@
+# ビルド成果物
+node_modules/
+out/
+build/
+dist/
+
+# ログ・キャッシュ
+*.log
+*.log.*
+.eslintcache
+
+# シークレット・認証情報（絶対に読み込まない）
+credentials.json
+token.json
+client_secret.json
+service_account.json
+*.key
+*.pem
+*.p12
+*.pfx
+
+# 環境変数
+.env
+.env.*
+
+# OS 生成ファイル
+.DS_Store
+
+# ロックファイル（変更不要な大きなファイル）
+package-lock.json
